@@ -63,3 +63,13 @@ dist/
 *.exe
 ffmpeg-*/
 *.7z
+
+
+
+# Ignore backup and secrets
+#.env
+.env~
+*.env~
+*.un~
+*~
+$null
