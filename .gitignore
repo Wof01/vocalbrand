@@ -53,7 +53,7 @@ dist/
 *.swp
 
 #Notes
-*.txt
+#*.txt
 
 #ffmpeg-2025-09-28-git-0fdb5829e3-full_build
 #ffmpeg-2025-09-28-git-0fdb5829e3-full_build/
@@ -73,3 +73,32 @@ ffmpeg-*/
 *.un~
 *~
 $null
+
+*secrets*
+*.env
+
+*.xlsx
+
+*secrets.example.toml
+
+# Ignore all text files
+*.txt
+
+# But do track this one
+!requirements.txt
+
+
+# Secrets and environment
+#.env
+#.env.*
+#*.env
+*.toml
+*.key
+*.pem
+*.json
+*.zip
+#*.7z
+#*.exe
+#*.bak
+*.tmp
+#__pycache__/
