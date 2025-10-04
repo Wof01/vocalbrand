@@ -1,0 +1,16 @@
+/* Minimal styling for billing pages */
+:root{
+  --accent: #4f46e5;
+  --text: #0f172a;
+  --muted: #475569;
+  --bg: #f8fafc;
+}
+*{box-sizing:border-box}
+body{font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;background:var(--bg);color:var(--text)}
+.container{max-width:720px;margin:48px auto;padding:24px;background:#fff;border-radius:12px;box-shadow:0 6px 24px rgba(2,6,23,.08)}
+.logo{height:40px}
+.title{margin:12px 0 6px}
+.lead{color:var(--muted);margin:0 0 12px}
+.btn{display:inline-block;background:var(--accent);color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:600}
+.meta{margin-top:16px;font-size:13px;color:var(--muted)}
+footer{margin:24px auto 0;max-width:720px;padding:0 24px 24px;color:var(--muted);font-size:12px;text-align:center}

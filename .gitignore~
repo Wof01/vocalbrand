@@ -1,0 +1,65 @@
+# VocalBrand Supreme .gitignore
+# Python basics
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.sqlite3
+*.db
+
+# Virtual environments
+vocalbrand_supreme/
+vocalbrand_supreme_venv/
+.venv/
+venv/
+ENV/
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.code-workspace
+
+# Logs & runtime
+*.log
+logs/
+.sentry-debug-meta
+
+# Local secrets
+.secrets.toml
+.env
+.env.*
+*.local
+
+# Audio uploads / temp artifacts
+*.wav
+*.mp3
+recordings/
+
+# Build / Dist
+build/
+dist/
+.eggs/
+*.egg-info/
+
+# Cache
+.cache/
+.streamlit/
+
+# Misc
+*.bak
+*.swp
+
+#Notes
+*.txt
+
+#ffmpeg-2025-09-28-git-0fdb5829e3-full_build
+#ffmpeg-2025-09-28-git-0fdb5829e3-full_build/
+#*.7z
+ffmpeg-2025-09-28-git-0fdb5829e3-full_build/
+ffmpeg-2025-09-28-git-0fdb5829e3-full_build.7z
+*.exe
+ffmpeg-*/
+*.7z

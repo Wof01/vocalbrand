@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Payment successful • VocalBrand</title>
+  <link rel="stylesheet" href="../site.css"/>
+</head>
+<body>
+  <div class="container">
+    <img class="logo" src="../logo.png" alt="VocalBrand" onerror="this.style.display='none'"/>
+    <h1 class="title">Payment successful 🎉</h1>
+    <p class="lead">Your subscription is active. We’ll take you back to the app automatically.</p>
+    <p class="meta">Session ID: <span id="sid">loading…</span></p>
+    <p>
+      <a id="back" class="btn" href="#">Back to app</a>
+    </p>
+  </div>
+  <footer>VocalBrand • Thank you for your purchase</footer>
+  <script>
+    function qp(name){return new URLSearchParams(location.search).get(name)||''}
+    function safeDecode(u){try{return decodeURIComponent(u)}catch(e){return u}}
+    const returnToRaw = qp('return_to');
+    const returnTo = returnToRaw ? safeDecode(returnToRaw) : '';
+    const sess = qp('session_id');
+    document.getElementById('sid').textContent = sess || 'unknown';
+    const current = new URL(location.href);
+    let backUrl = returnTo ? `${returnTo}?billing=success&session_id=${encodeURIComponent(sess||'')}` : '';
+    const back = document.getElementById('back');
+    back.href = backUrl || '/';
+    const shouldAuto = backUrl && (()=>{
+      try{ const dest = new URL(backUrl); return dest.origin+dest.pathname !== current.origin+current.pathname; }catch(e){ return false; }
+    })();
+  // Auto-redirect disabled to avoid browser/site-specific redirect loops.
+  // Click the button if not redirected automatically.
+  </script>
+</body>
+</html>
