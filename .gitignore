@@ -86,7 +86,7 @@ $null
 
 # But do track this one
 !requirements.txt
-
+!packages.txt
 
 # Secrets and environment
 #.env
