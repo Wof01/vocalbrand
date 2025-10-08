@@ -146,9 +146,10 @@ BRIDGE_QUEUE: "queue.Queue[str]" = queue.Queue()
 try:
     ensure_native_recorder_available()
     logger.info(
-        "Recorder availability after auto-install: audiorecorder=%s, st_audiorec=%s",
+        "Recorder availability after auto-install: audiorecorder=%s, st_audiorec=%s, mic_recorder=%s",
         audiorecorder is not None,
         st_audiorec is not None,
+        'mic_recorder' in globals() and (mic_recorder is not None),
     )
 except Exception as _e:
     logger.warning("Auto-install for recorder components skipped or failed: %s", _e)
@@ -326,10 +327,17 @@ def initialize_recorder_support() -> Tuple[bool, str, str, str, str]:
     
     recorder_message = ""
     status = "ok"
-    has_component = (audiorecorder is not None) or (st_audiorec is not None)
+    # Treat mic_recorder as a valid native component too (Cloud-friendly)
+    has_component = (audiorecorder is not None) or (st_audiorec is not None) or (
+        'mic_recorder' in globals() and (mic_recorder is not None)
+    )
     
-    logger.info("Audio recorder components: audiorecorder=%s, st_audiorec=%s", 
-                audiorecorder is not None, st_audiorec is not None)
+    logger.info(
+        "Audio recorder components: audiorecorder=%s, st_audiorec=%s, mic_recorder=%s",
+        audiorecorder is not None,
+        st_audiorec is not None,
+        'mic_recorder' in globals() and (mic_recorder is not None),
+    )
     
     if not has_component:
         status = "component_missing"
@@ -352,7 +360,11 @@ def initialize_recorder_support() -> Tuple[bool, str, str, str, str]:
         ffprobe_path,
         os.environ.get("FFMPEG_BINARY"),
     )
-    comp = "audiorecorder" if audiorecorder is not None else ("st_audiorec" if st_audiorec is not None else "none")
+    comp = (
+        "audiorecorder"
+        if audiorecorder is not None
+        else ("st_audiorec" if st_audiorec is not None else ("mic_recorder" if ('mic_recorder' in globals() and mic_recorder is not None) else "none"))
+    )
     msg = recorder_message or f"component={comp}"
     return has_component and status == "ok", status, ffmpeg_path, ffprobe_path, msg
 
@@ -536,7 +548,9 @@ def render_audio_capture_area() -> None:
     st.markdown("#### Record a 30-60s sample")
     # Allow forcing Pro Recorder (HTML5) even if native is present, for live timer+waveform
     force_pro = bool(st.session_state.get("use_pro_recorder"))
-    if force_pro or not HAS_NATIVE_RECORDER:
+    # If Pro is forced, or if native is missing AND we also don't have mic_recorder,
+    # render the HTML5 Pro fallback. If mic_recorder exists, we'll skip this and use it below.
+    if force_pro or (not HAS_NATIVE_RECORDER and not ('mic_recorder' in globals() and mic_recorder is not None)):
         st.info(
             (
                 "Using Pro Recorder (live timer + waveform).\n\n"
@@ -706,10 +720,9 @@ def render_audio_capture_area() -> None:
                 if len(msg) > 220:
                     msg = msg[:220] + "…"
                 st.warning(f"Pro Recorder decode failed: {msg}")
-        # Show upload option and prevent native recorder from rendering when Pro Recorder is active/forced
+        # Show upload option and prevent further rendering when this Pro fallback is active
         render_file_upload_fallback()
-        if force_pro or not HAS_NATIVE_RECORDER:
-            return
+        return
     # Prefer st_audiorec if available; it returns raw wav bytes directly
     raw_bytes: Optional[bytes] = None
     if st_audiorec is not None:
