@@ -116,3 +116,29 @@ HIDE_RECORDER_IF_NO_FFMPEG=1 # hide warning banner in production
 ```
 
 If deploying to Streamlit Cloud and recorder is important, bake FFmpeg via a custom build image or rely on upload fallback until a backend capture alternative is added.
+
+## Features & Behavior (Locked)
+The app’s behavior and feature set are now LOCKED (see `CONTEXT06_MANDATORY.txt`). Any change must preserve the following:
+
+- Recording options
+	- Native components when available: `streamlit-audiorecorder` or `streamlit_audio_recorder`
+	- Cloud-friendly fallback: `streamlit_mic_recorder` (auto-installed at runtime if missing, also pinned in requirements)
+	- Pro Recorder (HTML5, timer + waveform) with base64 ingest and upload link
+	- Upload fallback (WAV/MP3/M4A)
+- FFmpeg handling
+	- Cross‑platform detection (Windows .exe, Linux no‑ext)
+	- Streamlit Cloud installs: `packages.txt` includes `ffmpeg`, `libavcodec-extra`, `libsndfile1`, `portaudio19-dev`
+	- Local Windows: existing FFmpeg respected; no behavior change
+- Core flows
+	- Authentication (login/register), subscription & Stripe Checkout, webhook server, offline mode option
+	- Voice cloning and speech generation remain unchanged
+	- Metrics and DB behavior preserved
+- UX improvements (non-breaking)
+	- Mobile-first navigation reliability: sticky hamburger, larger tap targets, overlay z-index fix
+	- Elegant step dots for phases (`utils/ui.py: render_steps`) without changing flow logic
+	- Visual polish via CSS only; labels and step order unchanged
+
+Deploy notes (Cloud):
+- `requirements.txt` includes recorder components and `streamlit-mic-recorder`
+- `packages.txt` ensures system libraries for audio are present
+- No large binaries are committed
