@@ -210,23 +210,37 @@ def _scan_local_ffmpeg() -> Tuple[str, str]:
 
 def initialize_recorder_support() -> Tuple[bool, str, str, str, str]:
     attempt_auto_ffmpeg()
+    
+    # Try to find ffmpeg using multiple methods
     ffmpeg_path = _resolve_binary("ffmpeg", "FFMPEG_BINARY") or ""
     ffprobe_path = _resolve_binary("ffprobe", "FFPROBE_BINARY") or ""
+    
+    logger.info("FFmpeg detection attempt 1 (PATH/env): ffmpeg=%s, ffprobe=%s", ffmpeg_path, ffprobe_path)
+    
     if not ffmpeg_path or not ffprobe_path:
         local_ffmpeg, local_ffprobe = _scan_local_ffmpeg()
         ffmpeg_path = ffmpeg_path or local_ffmpeg
         ffprobe_path = ffprobe_path or local_ffprobe
+        logger.info("FFmpeg detection attempt 2 (local scan): ffmpeg=%s, ffprobe=%s", ffmpeg_path, ffprobe_path)
+    
     if ffmpeg_path:
         os.environ.setdefault("FFMPEG_BINARY", ffmpeg_path)
         # Prepend bin directory to PATH for libraries (pydub) relying on PATH scan
         bin_dir = str(Path(ffmpeg_path).parent)
         if bin_dir not in os.environ.get("PATH", ""):
             os.environ["PATH"] = bin_dir + os.pathsep + os.environ.get("PATH", "")
+        logger.info("FFmpeg configured: FFMPEG_BINARY=%s, PATH updated with %s", ffmpeg_path, bin_dir)
     if ffprobe_path:
         os.environ.setdefault("FFPROBE_BINARY", ffprobe_path)
+        logger.info("FFprobe configured: FFPROBE_BINARY=%s", ffprobe_path)
+    
     recorder_message = ""
     status = "ok"
     has_component = (audiorecorder is not None) or (st_audiorec is not None)
+    
+    logger.info("Audio recorder components: audiorecorder=%s, st_audiorec=%s", 
+                audiorecorder is not None, st_audiorec is not None)
+    
     if not has_component:
         status = "component_missing"
         recorder_message = (
@@ -234,9 +248,12 @@ def initialize_recorder_support() -> Tuple[bool, str, str, str, str]:
             "Or: pip install streamlit-audio-recorder. "
             "Imports: 'from audiorecorder import audiorecorder' or 'from streamlit_audio_recorder import st_audiorec'."
         )
+        logger.error("Audio recorder component missing!")
     elif not ffmpeg_path:
         status = "ffmpeg_missing"
         recorder_message = "FFmpeg not detected. Place binaries under project /ffmpeg.../bin or add to PATH."
+        logger.error("FFmpeg binary not found in PATH or local directories!")
+    
     logger.info(
         "Recorder init | component=%s status=%s ffmpeg=%s ffprobe=%s path_in_env=%s",
         has_component,

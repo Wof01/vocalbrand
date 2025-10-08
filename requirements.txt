@@ -13,4 +13,4 @@ python-multipart>=0.0.9   # ensure FastAPI can parse form-data if needed
 typing-extensions>=4.12.0 # forward compatibility (some libs rely on it)
 pytest>=8.2.0             # optional: run tests (e.g., tests/test_engine_offline.py)
 git+https://github.com/stefanrmmr/streamlit_audio_recorder.git@777d18114130137d492c0378a86631fff1ff1be5#egg=streamlit-audiorec  # optional recorder component (pinned commit)
-ffmpeg-python==0.2.0  #another way to install in streamlit cloud
+
