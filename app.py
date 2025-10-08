@@ -39,10 +39,17 @@ try:
 except Exception:  # pragma: no cover
     st_audiorec = None
 
+# Third fallback: streamlit_mic_recorder (actively maintained)
+try:
+    from streamlit_mic_recorder import mic_recorder  # type: ignore
+except Exception:  # pragma: no cover
+    mic_recorder = None
+
 # Runtime self-heal for missing recorder components on Streamlit Cloud/Linux.
-def _try_import_recorders() -> Tuple[Optional[Any], Optional[Any]]:
+def _try_import_recorders() -> Tuple[Optional[Any], Optional[Any], Optional[Any]]:
     _aud = None
     _st = None
+    _mic = None
     try:
         from audiorecorder import audiorecorder as _ar  # type: ignore
         _aud = _ar
@@ -57,7 +64,12 @@ def _try_import_recorders() -> Tuple[Optional[Any], Optional[Any]]:
         _st = _sa
     except Exception:
         _st = None
-    return _aud, _st
+    try:
+        from streamlit_mic_recorder import mic_recorder as _mr  # type: ignore
+        _mic = _mr
+    except Exception:
+        _mic = None
+    return _aud, _st, _mic
 
 
 def _pip_install_if_missing(pkgs: List[str], timeout: int = 240) -> bool:
@@ -79,8 +91,8 @@ def ensure_native_recorder_available() -> None:
     This keeps the app "locked" functionally while self-healing the environment.
     No-op on Windows/local where the user already has everything.
     """
-    global audiorecorder, st_audiorec
-    if (audiorecorder is not None) or (st_audiorec is not None):
+    global audiorecorder, st_audiorec, mic_recorder
+    if (audiorecorder is not None) or (st_audiorec is not None) or (mic_recorder is not None):
         return
     # Heuristic: Streamlit Cloud is Linux. Avoid doing this on Windows.
     if platform.system().lower() != "linux":
@@ -92,14 +104,17 @@ def ensure_native_recorder_available() -> None:
     pkgs = [
         "streamlit-audiorecorder>=0.0.2",
         "git+https://github.com/stefanrmmr/streamlit_audio_recorder.git@777d18114130137d492c0378a86631fff1ff1be5#egg=streamlit-audiorec",
+        "streamlit-mic-recorder>=0.0.8",
     ]
     success = _pip_install_if_missing(pkgs)
     # Re-attempt imports regardless; success flag is just advisory.
-    _aud, _st = _try_import_recorders()
+    _aud, _st, _mic = _try_import_recorders()
     if _aud is not None:
         audiorecorder = _aud
     if _st is not None:
         st_audiorec = _st
+    if _mic is not None:
+        mic_recorder = _mic
 
 from auth import (
     authenticate,
@@ -712,6 +727,12 @@ def render_audio_capture_area() -> None:
             buffer = BytesIO()
             audio.export(buffer, format="wav")
             raw_bytes = buffer.getvalue()
+    elif mic_recorder is not None:
+        # mic_recorder returns a dict with 'bytes' (wav) when finished
+        st.caption("Alternative recorder active (mic_recorder)")
+        rec = mic_recorder(start_prompt="🎙️ Start", stop_prompt="⏹️ Stop", just_once=True, use_container_width=True, key="mr_fallback")
+        if isinstance(rec, dict) and rec.get("bytes"):
+            raw_bytes = rec["bytes"]
 
     if raw_bytes:
         meta = _ingest_audio_bytes(raw_bytes, source="native_recorder")
