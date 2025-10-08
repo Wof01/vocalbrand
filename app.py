@@ -971,7 +971,7 @@ def render_upgrade_section(container: Any) -> None:
         container.info("Log in to start a premium subscription.")
         return
     user_ref = f"user_{st.session_state['user_id']}"
-    if container.button("Start premium subscription", key="upgrade_btn", use_container_width=True):
+    if container.button("Start premium subscription", key="upgrade_btn", width="stretch"):
         url, checkout_id = payment_manager.create_checkout_session(user_ref)
         st.session_state["latest_checkout_id"] = checkout_id
         container.markdown(f"[Open secure checkout]({url})", unsafe_allow_html=True)
@@ -985,7 +985,7 @@ def render_account_panel() -> None:
         st.sidebar.success(f"Signed in as {st.session_state['user_email']}")
         sub_active = st.session_state.get("subscription_active")
         st.sidebar.markdown(f"**Subscription:** {'Active 💎' if sub_active else 'Free tier'}")
-        if st.sidebar.button("Log out", key="logout_btn", use_container_width=True):
+    if st.sidebar.button("Log out", key="logout_btn", width="stretch"):
             logout()
     else:
         st.sidebar.info("Create an account to unlock cloning and TTS.")
@@ -1111,7 +1111,7 @@ def main() -> None:
     # Brand the sidebar with logo if available
     try:
         if Path("logo.png").exists():
-            st.sidebar.image("logo.png", use_container_width=True)
+            st.sidebar.image("logo.png", width="stretch")
             st.sidebar.markdown("---")
     except Exception:
         pass

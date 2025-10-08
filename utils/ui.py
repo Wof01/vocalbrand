@@ -39,6 +39,25 @@ button, .stButton>button { min-height: 44px; }
 
 /* Subtle card polish */
 .vb-card { background:white; border:1px solid #e5e7eb; border-radius:14px; padding:1rem; box-shadow: 0 6px 16px rgba(0,0,0,.06); }
+
+/* Compact status chips */
+.vb-chiprow { display:flex; flex-wrap:wrap; gap:.4rem .5rem; }
+.vb-chip { display:inline-flex; align-items:center; gap:.35rem; padding:.25rem .55rem; border-radius:999px; font-weight:600; font-size:.8rem; border:1px solid; white-space:nowrap; }
+.vb-chip .dot { width:8px; height:8px; border-radius:50%; background:currentColor; opacity:.7; }
+.vb-chip.ok { background:#ecfdf5; color:#065f46; border-color:#a7f3d0; }
+.vb-chip.warn { background:#fffbeb; color:#92400e; border-color:#fde68a; }
+.vb-chip.err { background:#fef2f2; color:#991b1b; border-color:#fecaca; }
+
+/* Sidebar polish: stretch actions and images */
+section[data-testid="stSidebar"] .stButton>button { width: 100%; }
+section[data-testid="stSidebar"] img { width: 100% !important; height: auto !important; }
+section[data-testid="stSidebar"] { padding-right: .5rem; }
+
+/* Slightly tighter spacing in narrow screens */
+@media (max-width: 640px) {
+    .vb-card { padding: .75rem; }
+    .premium-card { padding: 1rem; }
+}
 </style>
 """
 
@@ -75,3 +94,11 @@ def render_steps(active:int, total:int):
             cls += " active"
         dots.append(f'<span class="{cls}"></span>')
     st.markdown('<div class="vb-steps">' + "".join(dots) + '</div>', unsafe_allow_html=True)
+
+def render_status_chips(items: Iterable[tuple[str, str, str]]):
+    """Render compact status chips. items: (label, state[ok|warn|err], tooltip)."""
+    chips = []
+    for label, state, tip in items:
+        state = state if state in {"ok","warn","err"} else "warn"
+        chips.append(f'<span class="vb-chip {state}" title="{tip}"><span class="dot"></span>{label}</span>')
+    st.markdown('<div class="vb-chiprow">' + "".join(chips) + '</div>', unsafe_allow_html=True)
