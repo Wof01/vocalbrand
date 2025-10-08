@@ -184,15 +184,25 @@ def _scan_local_ffmpeg() -> Tuple[str, str]:
         candidate_dirs.append(p)
     ffmpeg_path = ""
     ffprobe_path = ""
+    # Support both Windows (.exe) and Linux (no extension)
+    ffmpeg_names = ["ffmpeg.exe", "ffmpeg"]
+    ffprobe_names = ["ffprobe.exe", "ffprobe"]
+    
     for d in candidate_dirs:
         if not d.exists():
             continue
-        fp = d / "ffmpeg.exe"
-        if fp.exists():
-            ffmpeg_path = str(fp)
-        fp2 = d / "ffprobe.exe"
-        if fp2.exists():
-            ffprobe_path = str(fp2)
+        # Try to find ffmpeg
+        for fname in ffmpeg_names:
+            fp = d / fname
+            if fp.exists():
+                ffmpeg_path = str(fp)
+                break
+        # Try to find ffprobe
+        for fname in ffprobe_names:
+            fp2 = d / fname
+            if fp2.exists():
+                ffprobe_path = str(fp2)
+                break
         if ffmpeg_path and ffprobe_path:
             break
     return ffmpeg_path, ffprobe_path

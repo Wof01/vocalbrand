@@ -25,10 +25,12 @@ FFMPEG_RELEASE_URL = (
 
 def _already_present() -> bool:
     # Simple presence check in PATH or common dirs
+    import shutil  # local import
     candidates = [
         os.getenv("FFMPEG_BINARY"),
-        shutil.which("ffmpeg") if "shutil" in sys.modules else None,
-        str(Path(os.getcwd()) / "ffmpeg" / "bin" / "ffmpeg.exe"),
+        shutil.which("ffmpeg"),
+        str(Path(os.getcwd()) / "ffmpeg" / "bin" / "ffmpeg.exe"),  # Windows
+        str(Path(os.getcwd()) / "ffmpeg" / "bin" / "ffmpeg"),      # Linux
     ]
     return any(p and os.path.exists(p) for p in candidates)
 
