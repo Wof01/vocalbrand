@@ -11,6 +11,8 @@ import shutil
 import sys
 import threading
 import time
+import subprocess
+import platform
 from dataclasses import dataclass, field
 from datetime import datetime
 from io import BytesIO
@@ -37,6 +39,68 @@ try:
 except Exception:  # pragma: no cover
     st_audiorec = None
 
+# Runtime self-heal for missing recorder components on Streamlit Cloud/Linux.
+def _try_import_recorders() -> Tuple[Optional[Any], Optional[Any]]:
+    _aud = None
+    _st = None
+    try:
+        from audiorecorder import audiorecorder as _ar  # type: ignore
+        _aud = _ar
+    except Exception:
+        try:
+            from streamlit_audiorecorder import audiorecorder as _ar  # type: ignore
+            _aud = _ar
+        except Exception:
+            _aud = None
+    try:
+        from streamlit_audio_recorder import st_audiorec as _sa  # type: ignore
+        _st = _sa
+    except Exception:
+        _st = None
+    return _aud, _st
+
+
+def _pip_install_if_missing(pkgs: List[str], timeout: int = 240) -> bool:
+    """Attempt to install packages via pip at runtime. Safe on Streamlit Cloud.
+
+    Returns True if pip exited with code 0, False otherwise.
+    """
+    try:
+        cmd = [sys.executable, "-m", "pip", "install", "-q"] + pkgs
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        return proc.returncode == 0
+    except Exception:
+        return False
+
+
+def ensure_native_recorder_available() -> None:
+    """If recorder components are missing, try to auto-install on Linux/Cloud.
+
+    This keeps the app "locked" functionally while self-healing the environment.
+    No-op on Windows/local where the user already has everything.
+    """
+    global audiorecorder, st_audiorec
+    if (audiorecorder is not None) or (st_audiorec is not None):
+        return
+    # Heuristic: Streamlit Cloud is Linux. Avoid doing this on Windows.
+    if platform.system().lower() != "linux":
+        return
+    # Allow disabling via env if ever needed.
+    if os.getenv("AUTO_INSTALL_RECORDER", "1") != "1":
+        return
+    # Try installing both common recorder components, then reimport.
+    pkgs = [
+        "streamlit-audiorecorder>=0.0.2",
+        "git+https://github.com/stefanrmmr/streamlit_audio_recorder.git@777d18114130137d492c0378a86631fff1ff1be5#egg=streamlit-audiorec",
+    ]
+    success = _pip_install_if_missing(pkgs)
+    # Re-attempt imports regardless; success flag is just advisory.
+    _aud, _st = _try_import_recorders()
+    if _aud is not None:
+        audiorecorder = _aud
+    if _st is not None:
+        st_audiorec = _st
+
 from auth import (
     authenticate,
     ensure_demo_user,
@@ -62,6 +126,17 @@ logger = logging.getLogger("vocalbrand.app")
 FREE_LIMIT = int(os.getenv("VOCALBRAND_FREE_LIMIT", "3"))
 BRIDGE_HISTORY_LIMIT = int(os.getenv("VOCALBRAND_BRIDGE_HISTORY_LIMIT", "25"))
 BRIDGE_QUEUE: "queue.Queue[str]" = queue.Queue()
+
+# Ensure recorder components are present on Streamlit Cloud before proceeding.
+try:
+    ensure_native_recorder_available()
+    logger.info(
+        "Recorder availability after auto-install: audiorecorder=%s, st_audiorec=%s",
+        audiorecorder is not None,
+        st_audiorec is not None,
+    )
+except Exception as _e:
+    logger.warning("Auto-install for recorder components skipped or failed: %s", _e)
 def handle_billing_return() -> None:
     """If redirected back from Stripe, verify session and flip subscription flag.
 
