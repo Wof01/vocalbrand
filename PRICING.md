@@ -17,6 +17,20 @@ This doc explains how we price, how costs scale with ElevenLabs, and how to conf
   - `VocalBrand Pro — Annual` — €290
   - Minutes packs (only after confirming your real CPM with ElevenLabs).
 
+### How to surface Payment Links inside the app (optional)
+
+Create the Payment Links in Stripe and set the following environment variables with the full URLs. The app will render them as plain links in the Upgrade section. This does not change any logic or state.
+
+```
+SETUP_PRO_PAYMENT_LINK=https://buy.stripe.com/...
+SETUP_ENT_PAYMENT_LINK=https://buy.stripe.com/...
+PACK60_PAYMENT_LINK=https://buy.stripe.com/...
+PACK300_PAYMENT_LINK=https://buy.stripe.com/...
+PACK1000_PAYMENT_LINK=https://buy.stripe.com/...
+```
+
+These are external one-time purchases; they do not automatically grant in-app entitlements while features are locked.
+
 ## Included usage policy (not enforced in code)
 
 - Pro includes 30 TTS minutes / month.

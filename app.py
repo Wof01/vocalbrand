@@ -987,6 +987,26 @@ def render_upgrade_section(container: Any) -> None:
     if st.session_state.get("latest_checkout_id"):
         container.caption(f"Latest checkout session: {st.session_state['latest_checkout_id']}")
 
+    # Optional: display one-time Payment Links (visual-only; does not affect app state)
+    # Configure these as full URLs in environment variables. This keeps logic locked while
+    # giving users a clear place to purchase onboarding or packs externally.
+    links = {
+        "Setup — Professional (€497)": os.getenv("SETUP_PRO_PAYMENT_LINK"),
+        "Setup — Enterprise (€997)": os.getenv("SETUP_ENT_PAYMENT_LINK"),
+        "Minutes Pack 60": os.getenv("PACK60_PAYMENT_LINK"),
+        "Minutes Pack 300": os.getenv("PACK300_PAYMENT_LINK"),
+        "Minutes Pack 1000": os.getenv("PACK1000_PAYMENT_LINK"),
+    }
+    visible = [(label, url) for label, url in links.items() if url]
+    if visible:
+        container.markdown("---")
+        container.markdown("#### One-time services (Payment Links)")
+        for label, url in visible:
+            container.markdown(f"- [{label}]({url})")
+        container.caption(
+            "These are external one-time purchases. They do not change your in-app subscription state."
+        )
+
 
 def render_account_panel() -> None:
     st.sidebar.markdown("## Account")

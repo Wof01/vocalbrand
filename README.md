@@ -4,6 +4,21 @@ Ultra-fast voice cloning SaaS prototype built for rapid launch: upload voice sam
 
 > Pricing & Cost Model: see PRICING.md for Stripe setup, included minutes policy, and cost formulas (no code changes required).
 
+### One-time Payment Links (optional, no code changes)
+You can sell onboarding or minutes packs outside the app with Stripe Payment Links. Create one-time Products and copy the link URLs into these environment variables to show them in the in-app Upgrade section (as plain links):
+
+```
+SETUP_PRO_PAYMENT_LINK=https://buy.stripe.com/...
+SETUP_ENT_PAYMENT_LINK=https://buy.stripe.com/...
+PACK60_PAYMENT_LINK=https://buy.stripe.com/...     # optional
+PACK300_PAYMENT_LINK=https://buy.stripe.com/...    # optional
+PACK1000_PAYMENT_LINK=https://buy.stripe.com/...   # optional
+```
+
+Notes:
+- These links are informational shortcuts. Buying via a Payment Link does not change in-app subscription status automatically. If you need automatic provisioning, handle it outside the app or via operational workflow (manual crediting) while features are locked.
+- The in-app subscription button continues to use `STRIPE_PRICE_ID` via Stripe Checkout and is unaffected.
+
 ## Authentication Gate
 - Voice cloning and speech generation now require a signed-in user. Guests can browse the landing copy but must log in or register before recording/uploading audio or hitting the ElevenLabs APIs. Session state is reset on logout to prevent lingering access.
 
