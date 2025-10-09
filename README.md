@@ -2,22 +2,48 @@
 
 Ultra-fast voice cloning SaaS prototype built for rapid launch: upload voice sample -> clone -> generate speech -> upgrade.
 
-> Pricing & Cost Model: see PRICING.md for Stripe setup, included minutes policy, and cost formulas (no code changes required).
+## 🆕 Recent Updates
 
-### One-time Payment Links (optional, no code changes)
-You can sell onboarding or minutes packs outside the app with Stripe Payment Links. Create one-time Products and copy the link URLs into these environment variables to show them in the in-app Upgrade section (as plain links):
+**Critical Fix (Usage Tracking):** Free-tier usage limit now persists across sessions and refreshes via database storage. See [CRITICAL_FIX_USAGE_TRACKING.md](./CRITICAL_FIX_USAGE_TRACKING.md) for testing instructions.
 
+**Enhanced Payment Options:** Flexible pricing with Annual subscriptions, Professional onboarding services, and Minutes Packs—all configurable via Payment Links. See [PAYMENT_OPTIONS_VISUAL_GUIDE.md](./PAYMENT_OPTIONS_VISUAL_GUIDE.md) for UI preview.
+
+## Documentation Quick Links
+
+- **[PRICING.md](./PRICING.md)** - Complete Stripe setup guide, pricing formulas, cost model
+- **[PAYMENT_OPTIONS_VISUAL_GUIDE.md](./PAYMENT_OPTIONS_VISUAL_GUIDE.md)** - How payment options appear in UI
+- **[CRITICAL_FIX_USAGE_TRACKING.md](./CRITICAL_FIX_USAGE_TRACKING.md)** - Testing the persistent usage counter
+- **[SECRETS_REFERENCE.md](./SECRETS_REFERENCE.md)** - All environment variables explained
+
+---
+
+## Payment & Pricing
+
+> Full guide: [PRICING.md](./PRICING.md)
+
+### Subscription Plans (no code changes)
+- **Monthly Pro** (€29/mo) - Managed via `STRIPE_PRICE_ID` (in-app checkout button)
+- **Annual Pro** (€290/yr) - Optional Payment Link via `ANNUAL_PAYMENT_LINK` (17% savings)
+
+### One-time Services (Payment Links - optional)
+Configure these environment variables to show professional onboarding options in the upgrade section:
+
+```bash
+SETUP_PRO_PAYMENT_LINK=https://buy.stripe.com/...    # Professional (€497, 60 min)
+SETUP_ENT_PAYMENT_LINK=https://buy.stripe.com/...    # Enterprise (€997, 120 min)
 ```
-SETUP_PRO_PAYMENT_LINK=https://buy.stripe.com/...
-SETUP_ENT_PAYMENT_LINK=https://buy.stripe.com/...
-PACK60_PAYMENT_LINK=https://buy.stripe.com/...     # optional
-PACK300_PAYMENT_LINK=https://buy.stripe.com/...    # optional
-PACK1000_PAYMENT_LINK=https://buy.stripe.com/...   # optional
+
+### Additional Minutes Packs (Payment Links - optional)
+```bash
+PACK60_PAYMENT_LINK=https://buy.stripe.com/...       # 60 min pack
+PACK300_PAYMENT_LINK=https://buy.stripe.com/...      # 300 min pack
+PACK1000_PAYMENT_LINK=https://buy.stripe.com/...     # 1000 min pack
 ```
 
-Notes:
-- These links are informational shortcuts. Buying via a Payment Link does not change in-app subscription status automatically. If you need automatic provisioning, handle it outside the app or via operational workflow (manual crediting) while features are locked.
-- The in-app subscription button continues to use `STRIPE_PRICE_ID` via Stripe Checkout and is unaffected.
+**Notes:**
+- Payment Links are visual shortcuts only. Purchases don't automatically change in-app state while features are locked.
+- The in-app subscription button continues to use `STRIPE_PRICE_ID` via Stripe Checkout (unaffected).
+- Only configure the links you actually created in Stripe. The UI adapts automatically.
 
 ## Authentication Gate
 - Voice cloning and speech generation now require a signed-in user. Guests can browse the landing copy but must log in or register before recording/uploading audio or hitting the ElevenLabs APIs. Session state is reset on logout to prevent lingering access.

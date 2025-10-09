@@ -120,6 +120,8 @@ from auth import (
     authenticate,
     ensure_demo_user,
     get_user,
+    get_free_usage,
+    increment_free_usage,
     hash_backend_status,
     init_db,
     register_user,
@@ -918,7 +920,12 @@ def render_generation_section() -> None:
     with col2:
         output_format = st.selectbox("Output format", [DEFAULT_OUTPUT_FORMAT, "mp3_44100_192", "wav"], index=0)
 
-    used_generations = len(st.session_state.get("tts_history", []))
+    # Use database-based counter for free users (persists across sessions/refreshes)
+    user_id = st.session_state.get("user_id")
+    used_generations = 0
+    if user_id and not st.session_state.get("subscription_active"):
+        used_generations = get_free_usage(user_id)
+    
     disabled = not prompt.strip()
     if not st.session_state.get("subscription_active"):
         st.info(f"Free plan usage: {used_generations}/{FREE_LIMIT} generations")
@@ -945,6 +952,11 @@ def render_generation_section() -> None:
             file_name=f"vocalbrand_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.{'mp3' if 'mp3' in output_format else 'wav'}",
             mime="audio/mpeg" if "mp3" in output_format else "audio/wav",
         )
+        
+        # Increment persistent usage counter for free users
+        if user_id and not st.session_state.get("subscription_active"):
+            increment_free_usage(user_id)
+        
         history = st.session_state.get("tts_history", [])
         history.append(
             {
@@ -979,33 +991,104 @@ def render_upgrade_section(container: Any) -> None:
     if not st.session_state.get("user_id"):
         container.info("Log in to start a premium subscription.")
         return
+    
+    # Main subscription options
+    container.markdown("---")
+    container.markdown("#### 💎 Subscription Plans")
+    
     user_ref = f"user_{st.session_state['user_id']}"
-    if container.button("Start premium subscription", key="upgrade_btn", width="stretch"):
-        url, checkout_id = payment_manager.create_checkout_session(user_ref)
-        st.session_state["latest_checkout_id"] = checkout_id
-        container.markdown(f"[Open secure checkout]({url})", unsafe_allow_html=True)
-    if st.session_state.get("latest_checkout_id"):
-        container.caption(f"Latest checkout session: {st.session_state['latest_checkout_id']}")
-
-    # Optional: display one-time Payment Links (visual-only; does not affect app state)
-    # Configure these as full URLs in environment variables. This keeps logic locked while
-    # giving users a clear place to purchase onboarding or packs externally.
-    links = {
-        "Setup — Professional (€497)": os.getenv("SETUP_PRO_PAYMENT_LINK"),
-        "Setup — Enterprise (€997)": os.getenv("SETUP_ENT_PAYMENT_LINK"),
-        "Minutes Pack 60": os.getenv("PACK60_PAYMENT_LINK"),
-        "Minutes Pack 300": os.getenv("PACK300_PAYMENT_LINK"),
-        "Minutes Pack 1000": os.getenv("PACK1000_PAYMENT_LINK"),
+    
+    # Monthly subscription (existing in-app flow)
+    col1, col2 = container.columns([3, 1])
+    with col1:
+        container.markdown("**Monthly Pro** — Unlimited generations, cancel anytime")
+    with col2:
+        if container.button("€29/mo →", key="upgrade_btn_monthly", use_container_width=True):
+            url, checkout_id = payment_manager.create_checkout_session(user_ref)
+            st.session_state["latest_checkout_id"] = checkout_id
+            container.markdown(f"[Open secure checkout]({url})", unsafe_allow_html=True)
+    
+    # Annual subscription via Payment Link (if configured)
+    annual_link = os.getenv("ANNUAL_PAYMENT_LINK")
+    if annual_link:
+        col1, col2 = container.columns([3, 1])
+        with col1:
+            container.markdown("**Annual Pro** — Save 17% (€290/year vs €348/year)")
+        with col2:
+            container.markdown(f"[€290/yr →]({annual_link})", unsafe_allow_html=True)
+    
+    # One-time professional services
+    setup_links = {
+        "Setup — Professional": os.getenv("SETUP_PRO_PAYMENT_LINK"),
+        "Setup — Enterprise": os.getenv("SETUP_ENT_PAYMENT_LINK"),
     }
-    visible = [(label, url) for label, url in links.items() if url]
-    if visible:
+    visible_setups = [(label, url) for label, url in setup_links.items() if url]
+    
+    if visible_setups:
         container.markdown("---")
-        container.markdown("#### One-time services (Payment Links)")
-        for label, url in visible:
-            container.markdown(f"- [{label}]({url})")
-        container.caption(
-            "These are external one-time purchases. They do not change your in-app subscription state."
-        )
+        container.markdown("#### 🚀 Professional Onboarding")
+        container.caption("One-time guided setup services for teams and enterprises")
+        
+        for label, url in visible_setups:
+            price = "€497" if "Professional" in label else "€997"
+            col1, col2 = container.columns([3, 1])
+            with col1:
+                duration = "60 min" if "Professional" in label else "120 min"
+                container.markdown(f"**{label}** — {duration} guided setup & Q&A")
+            with col2:
+                container.markdown(f"[{price} →]({url})", unsafe_allow_html=True)
+    
+    # Minutes packs for additional usage
+    pack_links = {
+        "60 min": os.getenv("PACK60_PAYMENT_LINK"),
+        "300 min": os.getenv("PACK300_PAYMENT_LINK"),
+        "1000 min": os.getenv("PACK1000_PAYMENT_LINK"),
+    }
+    visible_packs = [(label, url) for label, url in pack_links.items() if url]
+    
+    if visible_packs:
+        container.markdown("---")
+        container.markdown("#### ⚡ Additional Minutes Packs")
+        container.caption("Buy extra TTS minutes for heavy usage (pricing optimized for scale)")
+        
+        pack_prices = {"60 min": "€9", "300 min": "€39", "1000 min": "€99"}
+        for label, url in visible_packs:
+            price = pack_prices.get(label, "See pricing")
+            col1, col2 = container.columns([3, 1])
+            with col1:
+                container.markdown(f"**Voice Minutes Pack {label}**")
+            with col2:
+                container.markdown(f"[{price} →]({url})", unsafe_allow_html=True)
+    
+    # Help section
+    if visible_setups or visible_packs or annual_link:
+        container.markdown("---")
+        support_email = os.getenv("SUPPORT_EMAIL", "support@vocalbrand.app")
+        with container.expander("💡 Payment Options FAQ", expanded=False):
+            container.markdown(
+                f"""
+                **What's included in subscriptions?**
+                - Monthly Pro (€29/mo): Unlimited generations, priority processing, commercial license
+                - Annual Pro (€290/yr): Same as Monthly, but 17% cheaper (2 months free)
+                
+                **What are Setup services?**
+                - One-time onboarding sessions (not recurring). Video call with our team to help you integrate VocalBrand into your workflow.
+                - Professional (€497): 60 min session, best for solo entrepreneurs and small teams
+                - Enterprise (€997): 120 min session, best for agencies and larger teams
+                
+                **What are Minutes Packs?**
+                - Additional TTS minutes for billing/accounting purposes.
+                - These purchases track usage but don't automatically change in-app quotas while features are locked.
+                - For account crediting or custom enterprise pricing, contact {support_email}
+                
+                **How do I switch between Monthly and Annual?**
+                - Cancel your Monthly subscription in Stripe, then purchase Annual via the Payment Link above.
+                - Or contact {support_email} for assistance with the switch.
+                """
+            )
+    
+    if st.session_state.get("latest_checkout_id"):
+        container.caption(f"Latest checkout: {st.session_state['latest_checkout_id']}")
 
 
 def render_account_panel() -> None:

@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS users (
     subscription_active INTEGER DEFAULT 0,
     stripe_customer_id TEXT,
     stripe_subscription_id TEXT,
+    free_generations_used INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 """
@@ -50,6 +51,12 @@ def init_db():
     conn = _get_conn()
     with conn:
         conn.executescript(SCHEMA)
+        # Migrate existing tables to add free_generations_used if missing
+        try:
+            conn.execute("SELECT free_generations_used FROM users LIMIT 1")
+        except sqlite3.OperationalError:
+            # Column doesn't exist, add it
+            conn.execute("ALTER TABLE users ADD COLUMN free_generations_used INTEGER DEFAULT 0")
     conn.close()
 
 
@@ -228,6 +235,35 @@ def set_subscription(uid: int, active: bool, stripe_sub_id: str | None = None):
             (1 if active else 0, stripe_sub_id, uid),
         )
     conn.close()
+
+
+def get_free_usage(uid: int) -> int:
+    """Return the number of free generations used by this user."""
+    conn = _get_conn()
+    try:
+        cur = conn.execute("SELECT free_generations_used FROM users WHERE id=?", (uid,))
+        row = cur.fetchone()
+        if row:
+            return row[0] or 0
+        return 0
+    finally:
+        conn.close()
+
+
+def increment_free_usage(uid: int) -> int:
+    """Increment the free generation counter and return the new count."""
+    conn = _get_conn()
+    try:
+        with conn:
+            conn.execute(
+                "UPDATE users SET free_generations_used = free_generations_used + 1 WHERE id=?",
+                (uid,),
+            )
+        cur = conn.execute("SELECT free_generations_used FROM users WHERE id=?", (uid,))
+        row = cur.fetchone()
+        return row[0] if row else 0
+    finally:
+        conn.close()
 
 
 def ensure_demo_user():
