@@ -383,7 +383,12 @@ if engine.offline:
 
 STRIPE_KEY = get_secret("STRIPE_API_KEY", os.getenv("STRIPE_API_KEY", "")) or ""
 STRIPE_PRICE_ID = get_secret("STRIPE_PRICE_ID")
-payment_manager = PaymentManager(STRIPE_KEY, price_id=STRIPE_PRICE_ID) if STRIPE_KEY else None
+STRIPE_PRICE_ID_ANNUAL = get_secret("STRIPE_PRICE_ID_ANNUAL")
+payment_manager = PaymentManager(
+    STRIPE_KEY, 
+    price_id=STRIPE_PRICE_ID,
+    price_id_annual=STRIPE_PRICE_ID_ANNUAL
+) if STRIPE_KEY else None
 
 SESSION_DEFAULTS: Dict[str, Any] = {
     "user_id": None,
@@ -1001,24 +1006,36 @@ def render_upgrade_section(container: Any) -> None:
     
     user_ref = f"user_{st.session_state['user_id']}"
     
-    # Monthly subscription (existing in-app flow)
+    # Monthly subscription (in-app checkout)
     col1, col2 = container.columns([3, 1])
     with col1:
         container.markdown("**Monthly Pro** — Unlimited generations, cancel anytime")
     with col2:
-        if container.button("€29/mo →", key="upgrade_btn_monthly", use_container_width=True):
-            url, checkout_id = payment_manager.create_checkout_session(user_ref)
+        if container.button("€29/mo", key="upgrade_btn_monthly", use_container_width=True):
+            url, checkout_id = payment_manager.create_checkout_session(user_ref, plan="monthly")
             st.session_state["latest_checkout_id"] = checkout_id
-            container.markdown(f"[Open secure checkout]({url})", unsafe_allow_html=True)
+            container.markdown(f"[Open checkout →]({url})", unsafe_allow_html=True)
     
-    # Annual subscription via Payment Link (if configured)
-    annual_link = os.getenv("ANNUAL_PAYMENT_LINK")
-    if annual_link:
+    # Annual subscription (in-app checkout if price ID configured, otherwise Payment Link)
+    if payment_manager.price_id_annual:
+        # Use in-app checkout with annual price ID
         col1, col2 = container.columns([3, 1])
         with col1:
             container.markdown("**Annual Pro** — Save 17% (€290/year vs €348/year)")
         with col2:
-            container.markdown(f"[€290/yr →]({annual_link})", unsafe_allow_html=True)
+            if container.button("€290/yr", key="upgrade_btn_annual", use_container_width=True):
+                url, checkout_id = payment_manager.create_checkout_session(user_ref, plan="annual")
+                st.session_state["latest_checkout_id"] = checkout_id
+                container.markdown(f"[Open checkout →]({url})", unsafe_allow_html=True)
+    else:
+        # Fall back to Payment Link if annual price ID not configured
+        annual_link = os.getenv("ANNUAL_PAYMENT_LINK")
+        if annual_link:
+            col1, col2 = container.columns([3, 1])
+            with col1:
+                container.markdown("**Annual Pro** — Save 17% (€290/year vs €348/year)")
+            with col2:
+                container.markdown(f"[€290/yr →]({annual_link})", unsafe_allow_html=True)
     
     # One-time professional services
     setup_links = {
