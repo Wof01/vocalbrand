@@ -26,6 +26,11 @@ SUPREME_CSS = """
     section[data-testid="stSidebar"] { z-index: 2000 !important; }
 }
 
+/* On desktop/tablet widths, hide the extra hamburger trigger for a cleaner header */
+@media (min-width: 993px) {
+    [data-testid="stSidebarNavOpen"] { display: none !important; }
+}
+
 /* --- Elegant step dots / phase transitions --- */
 .vb-steps { display:flex; gap:.5rem; align-items:center; justify-content:center; margin: .5rem 0 1rem; }
 .vb-step { width:10px; height:10px; border-radius:50%; background:#cbd5e1; transition: transform .2s, background .2s; }
@@ -60,7 +65,12 @@ section[data-testid="stSidebar"] { padding-right: .5rem; }
     .premium-card { padding: 1rem; }
 }
 
+/* Hide Streamlit toolbar icons for a cleaner, market-ready UI */
+[data-testid="stToolbar"] { display: none !important; }
+
 /* Floating mobile menu button (fallback if hamburger is hidden) */
+/* Hidden by default on desktop to avoid flashing */
+.vb-fab-menu { display: none !important; }
 @media (max-width: 992px) {
     .vb-fab-menu { position: fixed; right: 16px; bottom: 16px; z-index: 2200; width: 56px; height: 56px; border: none; border-radius: 999px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #fff; background: linear-gradient(135deg,var(--primary-blue) 0%, #2d3748 100%); box-shadow: 0 10px 25px rgba(0,0,0,.2); }
     .vb-fab-menu:focus { outline: 3px solid rgba(212,175,55,.55); outline-offset: 2px; }

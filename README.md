@@ -2,6 +2,8 @@
 
 Ultra-fast voice cloning SaaS prototype built for rapid launch: upload voice sample -> clone -> generate speech -> upgrade.
 
+> Pricing & Cost Model: see PRICING.md for Stripe setup, included minutes policy, and cost formulas (no code changes required).
+
 ## Authentication Gate
 - Voice cloning and speech generation now require a signed-in user. Guests can browse the landing copy but must log in or register before recording/uploading audio or hitting the ElevenLabs APIs. Session state is reset on logout to prevent lingering access.
 

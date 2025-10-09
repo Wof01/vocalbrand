@@ -785,13 +785,18 @@ def _render_audio_feedback(meta: Dict[str, Any], raw_bytes: bytes) -> None:
         st.line_chart(arr, height=120)
     except Exception:
         pass
-    with st.expander("Sample diagnostics", expanded=False):
-        safe_meta = {k: v for k, v in meta.items() if k not in {"raw_bytes"}}
-        st.json(json.loads(json.dumps(safe_meta, default=str)))
+    if os.getenv("DEBUG_LOGGING", "0") == "1":
+        with st.expander("Sample diagnostics", expanded=False):
+            safe_meta = {k: v for k, v in meta.items() if k not in {"raw_bytes"}}
+            st.json(json.loads(json.dumps(safe_meta, default=str)))
 
 
 def render_clone_section() -> None:
     st.subheader("Voice cloning")
+    # Visual-only note (policy, not enforced by code)
+    st.caption(
+        "Usage policy: Pro includes 30 TTS minutes/month. Additional usage via Minutes Packs (sold by Payment Links)."
+    )
     # Power-user controls
     colx, coly, colz = st.columns([1.2, 1.2, 1])
     with colx:
@@ -889,6 +894,10 @@ def render_clone_section() -> None:
 
 def render_generation_section() -> None:
     st.subheader("Generate speech")
+    # Visual-only note (policy, not enforced by code)
+    st.caption(
+        "Usage policy: Pro includes 30 TTS minutes/month. Additional usage via Minutes Packs (sold by Payment Links)."
+    )
     voice_id = st.session_state.get("clone_voice_id", "")
     if not voice_id:
         st.warning("Clone a voice before generating audio.")
@@ -990,14 +999,16 @@ def render_account_panel() -> None:
     else:
         st.sidebar.info("Create an account to unlock cloning and TTS.")
     render_upgrade_section(st.sidebar)
-    st.sidebar.markdown("---")
-    with st.sidebar.expander("System status", expanded=False):
-        st.markdown(
-            f"- Recorder: {'✅' if HAS_NATIVE_RECORDER else '⚠️'} {RECORDER_STATUS} — {RECORDER_MSG or 'ready'}\n"
-            f"- FFmpeg: {FFMPEG_PATH or 'not found'}\n"
-            f"- ElevenLabs key: {'configured' if ELEVENLABS_KEY else 'missing'}\n"
-            f"- Engine offline: {engine.offline} ({engine.offline_reason})"
-        )
+    # Only show system status if DEBUG_LOGGING is explicitly enabled
+    if os.getenv("DEBUG_LOGGING", "0") == "1":
+        st.sidebar.markdown("---")
+        with st.sidebar.expander("System status", expanded=False):
+            st.markdown(
+                f"- Recorder: {'✅' if HAS_NATIVE_RECORDER else '⚠️'} {RECORDER_STATUS} — {RECORDER_MSG or 'ready'}\n"
+                f"- FFmpeg: {FFMPEG_PATH or 'not found'}\n"
+                f"- ElevenLabs key: {'configured' if ELEVENLABS_KEY else 'missing'}\n"
+                f"- Engine offline: {engine.offline} ({engine.offline_reason})"
+            )
 
 
 def login_section() -> None:
@@ -1035,6 +1046,8 @@ def login_section() -> None:
 
 
 def render_metrics_panel() -> None:
+    if os.getenv("DEBUG_LOGGING", "0") != "1":
+        return
     with st.expander("Diagnostics", expanded=False):
         st.markdown("#### Hash backend")
         st.json(hash_backend_status())
