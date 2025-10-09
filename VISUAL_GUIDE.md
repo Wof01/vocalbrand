@@ -146,7 +146,16 @@ Should show:
 
 ---
 
-## 🚀 Next Step After Success
+## � Mobile Navigation (New, Visual Only)
+
+- On phones, a floating round button appears at the bottom-right. Tapping it opens the Streamlit sidebar. It’s only a visual helper and doesn’t change flows.
+- The built-in hamburger icon is also forced visible and tappable across reruns. If you ever don’t see it, use the floating button.
+
+Accessibility: the button has an aria-label, high contrast, and a focus ring.
+
+---
+
+## �🚀 Next Step After Success
 
 Once recording is locked in:
 1. Click "🚀 Create Voice Clone"

@@ -128,7 +128,7 @@ from engine import DEFAULT_MODEL_ID, DEFAULT_OUTPUT_FORMAT, VocalBrandEngine
 from payment import PaymentManager
 from utils.audio_utils import validate_audio_bytes, quality_score
 from utils.ffmpeg_auto import attempt_auto_ffmpeg
-from utils.ui import inject_css
+from utils.ui import inject_css, inject_mobile_nav_helpers
 
 load_dotenv()
 
@@ -1108,6 +1108,11 @@ def main() -> None:
     ensure_session_defaults()
     ensure_voice_reset_on_logout()
     inject_css()
+    # Add visual-only, mobile-friendly sidebar opener
+    try:
+        inject_mobile_nav_helpers()
+    except Exception:
+        pass
     # Brand the sidebar with logo if available
     try:
         if Path("logo.png").exists():

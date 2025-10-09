@@ -16,13 +16,14 @@ SUPREME_CSS = """
 /* --- Mobile-first navigation reliability --- */
 @media (max-width: 992px) {
     /* Keep Streamlit hamburger visible and tappable */
-    [data-testid="stSidebarNavOpen"] button,
-    [data-testid="stSidebarNavOpen"] svg { opacity: 1 !important; }
-    [data-testid="stSidebarNavOpen"] { position: sticky; top: .5rem; z-index: 1000; }
+    [data-testid="stSidebarNavOpen"] { position: sticky; top: .5rem; z-index: 1500 !important; display: block !important; visibility: visible !important; }
+    [data-testid="stSidebarNavOpen"] button { width: 44px; height: 44px; opacity: 1 !important; visibility: visible !important; display: inline-flex !important; align-items:center; justify-content:center; border-radius:12px; }
+    [data-testid="stSidebarNavOpen"] svg { opacity: 1 !important; display:block !important; }
+    /* Some Streamlit builds render «» text; hide it and draw a clean icon */
+    [data-testid="stSidebarNavOpen"] button { font-size: 0 !important; }
+    [data-testid="stSidebarNavOpen"] button::after { content: "☰"; font-size: 22px; line-height: 1; color: #111827; }
     /* Ensure sidebar overlay sits above content */
-    section[data-testid="stSidebar"] { z-index: 1001 !important; }
-    /* Enlarge tap target */
-    [data-testid="stSidebarNavOpen"] button { width: 44px; height: 44px; }
+    section[data-testid="stSidebar"] { z-index: 2000 !important; }
 }
 
 /* --- Elegant step dots / phase transitions --- */
@@ -57,6 +58,13 @@ section[data-testid="stSidebar"] { padding-right: .5rem; }
 @media (max-width: 640px) {
     .vb-card { padding: .75rem; }
     .premium-card { padding: 1rem; }
+}
+
+/* Floating mobile menu button (fallback if hamburger is hidden) */
+@media (max-width: 992px) {
+    .vb-fab-menu { position: fixed; right: 16px; bottom: 16px; z-index: 2200; width: 56px; height: 56px; border: none; border-radius: 999px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #fff; background: linear-gradient(135deg,var(--primary-blue) 0%, #2d3748 100%); box-shadow: 0 10px 25px rgba(0,0,0,.2); }
+    .vb-fab-menu:focus { outline: 3px solid rgba(212,175,55,.55); outline-offset: 2px; }
+    .vb-fab-menu::after { content: "☰"; font-size: 24px; }
 }
 </style>
 """
@@ -102,3 +110,45 @@ def render_status_chips(items: Iterable[tuple[str, str, str]]):
         state = state if state in {"ok","warn","err"} else "warn"
         chips.append(f'<span class="vb-chip {state}" title="{tip}"><span class="dot"></span>{label}</span>')
     st.markdown('<div class="vb-chiprow">' + "".join(chips) + '</div>', unsafe_allow_html=True)
+
+
+def inject_mobile_nav_helpers():
+        """Inject a floating action button on mobile that opens the built-in sidebar.
+
+        Visual-only enhancement; it programmatically triggers Streamlit's native
+        hamburger button to open the sidebar when tapped. No core logic is changed.
+        """
+        from streamlit import markdown
+
+        html = """
+<button class="vb-fab-menu" id="vb-fab-menu" aria-label="Open menu" title="Open menu" tabindex="0"></button>
+<script>
+(function(){
+    const isMobile = window.matchMedia('(max-width: 992px)');
+    const fab = document.getElementById('vb-fab-menu');
+    function openSidebar(){
+        const native = document.querySelector('[data-testid="stSidebarNavOpen"] button');
+        if(native){ native.click(); }
+    }
+    function ensureHamburger(){
+        const trig = document.querySelector('[data-testid="stSidebarNavOpen"]');
+        if(!trig) return;
+        trig.style.opacity = '1';
+        trig.style.visibility = 'visible';
+        trig.style.zIndex = '1500';
+        const btn = trig.querySelector('button');
+        if(btn){ btn.style.opacity = '1'; btn.style.visibility = 'visible'; btn.style.display='inline-flex'; }
+    }
+    function syncFab(){
+        if(!isMobile.matches){ if(fab) fab.style.display='none'; return; }
+        if(fab) fab.style.display='flex';
+    }
+    fab && fab.addEventListener('click', openSidebar);
+    ensureHamburger();
+    syncFab();
+    // Keep styles resilient across reruns
+    setInterval(function(){ ensureHamburger(); syncFab(); }, 1200);
+})();
+</script>
+        """
+        markdown(html, unsafe_allow_html=True)
