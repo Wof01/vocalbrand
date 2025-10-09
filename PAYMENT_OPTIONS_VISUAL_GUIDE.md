@@ -34,14 +34,14 @@ Setup — Enterprise — 120 min guided setup & Q&A              [€997 →]
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⚡ Additional Minutes Packs
-Buy extra TTS minutes for heavy usage (pricing optimized for scale)
+Premium voice minutes for professional use cases
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Voice Minutes Pack 60 min                                    [€9 →]
+Voice Minutes Pack 60 min                                    [€89 →]
 
-Voice Minutes Pack 300 min                                   [€39 →]
+Voice Minutes Pack 300 min                                   [€399 →]
 
-Voice Minutes Pack 1000 min                                  [€99 →]
+Voice Minutes Pack 1000 min                                  [€1,299 →]
 ```
 
 ### Section 4: FAQ 💡

@@ -123,17 +123,24 @@ VocalBrand supports multiple flexible payment options via Stripe Payment Links. 
 
 ### Minutes Packs (Optional)
 
-Only offer these after confirming your ElevenLabs CPM pricing makes them profitable.
+**Premium positioning for professional users.** These prices reflect the business value customers receive, not just API costs.
 
-**Voice Minutes Pack 60** — €9
+**Voice Minutes Pack 60** — €89
 - Set `PACK60_PAYMENT_LINK`
-- Minimum profitable price depends on your ElevenLabs rate (see formula below)
+- Ideal for testing and small campaigns
+- **68%+ gross margin** at typical ElevenLabs rates
 
-**Voice Minutes Pack 300** — €39
+**Voice Minutes Pack 300** — €399
 - Set `PACK300_PAYMENT_LINK`
+- Best for ongoing content production
+- Popular with agencies and content creators
 
-**Voice Minutes Pack 1000** — €99
+**Voice Minutes Pack 1000** — €1,299
 - Set `PACK1000_PAYMENT_LINK`
+- Enterprise volume for heavy users
+- Scalable pricing for large deployments
+
+**Pricing Philosophy:** Value-based, not cost-plus. Customers buying voice minutes are creating marketing assets, ads, audiobooks, or courses worth far more than the pack price. Premium pricing attracts quality customers and maintains healthy margins.
 
 ### How to surface Payment Links inside the app
 

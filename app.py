@@ -122,6 +122,9 @@ from auth import (
     get_user,
     get_free_usage,
     increment_free_usage,
+    get_minutes_balance,
+    get_setup_credits,
+    get_user_by_email,
     hash_backend_status,
     init_db,
     register_user,
@@ -1049,9 +1052,9 @@ def render_upgrade_section(container: Any) -> None:
     if visible_packs:
         container.markdown("---")
         container.markdown("#### ⚡ Additional Minutes Packs")
-        container.caption("Buy extra TTS minutes for heavy usage (pricing optimized for scale)")
+        container.caption("Premium voice minutes for professional use cases")
         
-        pack_prices = {"60 min": "€9", "300 min": "€39", "1000 min": "€99"}
+        pack_prices = {"60 min": "€89", "300 min": "€399", "1000 min": "€1,299"}
         for label, url in visible_packs:
             price = pack_prices.get(label, "See pricing")
             col1, col2 = container.columns([3, 1])
@@ -1064,6 +1067,13 @@ def render_upgrade_section(container: Any) -> None:
     if visible_setups or visible_packs or annual_link:
         container.markdown("---")
         support_email = os.getenv("SUPPORT_EMAIL", "support@vocalbrand.app")
+        
+        # Critical: explain automatic activation
+        container.info(
+            "💡 **Automatic Activation:** Use the same email address for Payment Link checkouts as your VocalBrand account. "
+            "Credits are added instantly after payment."
+        )
+        
         with container.expander("💡 Payment Options FAQ", expanded=False):
             container.markdown(
                 f"""
@@ -1097,8 +1107,22 @@ def render_account_panel() -> None:
         st.sidebar.success(f"Signed in as {st.session_state['user_email']}")
         sub_active = st.session_state.get("subscription_active")
         st.sidebar.markdown(f"**Subscription:** {'Active 💎' if sub_active else 'Free tier'}")
-    if st.sidebar.button("Log out", key="logout_btn", width="stretch"):
-            logout()
+        
+        # Show purchased balances
+        user_id = st.session_state["user_id"]
+        minutes_bal = get_minutes_balance(user_id)
+        setup_bal = get_setup_credits(user_id)
+        
+        if minutes_bal > 0 or setup_bal > 0:
+            st.sidebar.markdown("---")
+            st.sidebar.markdown("**Your Credits:**")
+            if minutes_bal > 0:
+                st.sidebar.markdown(f"⚡ Minutes: **{minutes_bal}** min")
+            if setup_bal > 0:
+                st.sidebar.markdown(f"🚀 Setup credits: **{setup_bal}**")
+    
+    if st.sidebar.button("Log out", key="logout_btn", use_container_width=True):
+        logout()
     else:
         st.sidebar.info("Create an account to unlock cloning and TTS.")
     render_upgrade_section(st.sidebar)

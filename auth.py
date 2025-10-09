@@ -36,6 +36,8 @@ CREATE TABLE IF NOT EXISTS users (
     stripe_customer_id TEXT,
     stripe_subscription_id TEXT,
     free_generations_used INTEGER DEFAULT 0,
+    minutes_balance INTEGER DEFAULT 0,
+    setup_credits INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 """
@@ -51,12 +53,21 @@ def init_db():
     conn = _get_conn()
     with conn:
         conn.executescript(SCHEMA)
-        # Migrate existing tables to add free_generations_used if missing
+        # Migrate existing tables to add new columns if missing
         try:
             conn.execute("SELECT free_generations_used FROM users LIMIT 1")
         except sqlite3.OperationalError:
-            # Column doesn't exist, add it
             conn.execute("ALTER TABLE users ADD COLUMN free_generations_used INTEGER DEFAULT 0")
+        
+        try:
+            conn.execute("SELECT minutes_balance FROM users LIMIT 1")
+        except sqlite3.OperationalError:
+            conn.execute("ALTER TABLE users ADD COLUMN minutes_balance INTEGER DEFAULT 0")
+        
+        try:
+            conn.execute("SELECT setup_credits FROM users LIMIT 1")
+        except sqlite3.OperationalError:
+            conn.execute("ALTER TABLE users ADD COLUMN setup_credits INTEGER DEFAULT 0")
     conn.close()
 
 
@@ -264,6 +275,82 @@ def increment_free_usage(uid: int) -> int:
         return row[0] if row else 0
     finally:
         conn.close()
+
+
+def add_minutes_balance(uid: int, minutes: int) -> int:
+    """Add minutes to user's balance and return the new total."""
+    conn = _get_conn()
+    try:
+        with conn:
+            conn.execute(
+                "UPDATE users SET minutes_balance = minutes_balance + ? WHERE id=?",
+                (minutes, uid),
+            )
+        cur = conn.execute("SELECT minutes_balance FROM users WHERE id=?", (uid,))
+        row = cur.fetchone()
+        return row[0] if row else 0
+    finally:
+        conn.close()
+
+
+def get_minutes_balance(uid: int) -> int:
+    """Get user's current minutes balance."""
+    conn = _get_conn()
+    try:
+        cur = conn.execute("SELECT minutes_balance FROM users WHERE id=?", (uid,))
+        row = cur.fetchone()
+        return row[0] if row else 0
+    finally:
+        conn.close()
+
+
+def add_setup_credits(uid: int, credits: int) -> int:
+    """Add setup service credits to user's account and return the new total."""
+    conn = _get_conn()
+    try:
+        with conn:
+            conn.execute(
+                "UPDATE users SET setup_credits = setup_credits + ? WHERE id=?",
+                (credits, uid),
+            )
+        cur = conn.execute("SELECT setup_credits FROM users WHERE id=?", (uid,))
+        row = cur.fetchone()
+        return row[0] if row else 0
+    finally:
+        conn.close()
+
+
+def get_setup_credits(uid: int) -> int:
+    """Get user's setup service credits."""
+    conn = _get_conn()
+    try:
+        cur = conn.execute("SELECT setup_credits FROM users WHERE id=?", (uid,))
+        row = cur.fetchone()
+        return row[0] if row else 0
+    finally:
+        conn.close()
+
+
+def get_user_by_email(email: str):
+    """Get user by email address."""
+    conn = _get_conn()
+    try:
+        cur = conn.execute(
+            "SELECT id, email, subscription_active, minutes_balance, setup_credits FROM users WHERE email=?",
+            (email.lower().strip(),),
+        )
+        row = cur.fetchone()
+        if row:
+            return {
+                "id": row[0],
+                "email": row[1],
+                "subscription_active": bool(row[2]),
+                "minutes_balance": row[3] or 0,
+                "setup_credits": row[4] or 0,
+            }
+    finally:
+        conn.close()
+    return None
 
 
 def ensure_demo_user():
