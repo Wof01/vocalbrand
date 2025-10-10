@@ -135,6 +135,7 @@ from utils.audio_utils import validate_audio_bytes, quality_score
 from utils.ffmpeg_auto import attempt_auto_ffmpeg
 from utils.ui import inject_css, inject_mobile_nav_helpers
 from utils.email_utils import send_contact_email, is_email_configured
+from utils.seo import inject_seo_meta
 
 load_dotenv()
 
@@ -421,14 +422,14 @@ def configure_page() -> None:
         icon_path = "logo.png"
         page_icon = icon_path if Path(icon_path).exists() else "🎙️"
         st.set_page_config(
-            page_title="VocalBrand - Enterprise Voice Cloning",
+            page_title="VocalBrand Supreme - Clone Your Voice in 30 Seconds | AI Voice Generator",
             page_icon=page_icon,
             layout="wide",
             initial_sidebar_state="expanded",
             menu_items={
                 "Get Help": "https://vocalbrand.com/support",
                 "Report a bug": "https://vocalbrand.com/bug",
-                "About": "VocalBrand - World's Most Robust Voice Cloning SaaS",
+                "About": "VocalBrand Supreme - Transform your voice into a digital asset. Clone once, generate unlimited professional audio in seconds.",
             },
         )
     except Exception:  # pragma: no cover - set_page_config only allowed once
@@ -1729,6 +1730,11 @@ def main() -> None:
     ensure_session_defaults()
     ensure_voice_reset_on_logout()
     inject_css()
+    # Inject SEO meta tags for search engine optimization
+    try:
+        inject_seo_meta()
+    except Exception:
+        pass
     # Add visual-only, mobile-friendly sidebar opener
     try:
         inject_mobile_nav_helpers()

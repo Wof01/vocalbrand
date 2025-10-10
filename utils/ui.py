@@ -536,26 +536,34 @@ def inject_mobile_nav_helpers():
 <style>
 /* CSS-only open state using :has() targeting Streamlit shells */
 @media (max-width: 992px) {
+    /* DEFAULT STATE: Sidebar completely hidden off-screen when NOT checked */
+    [data-testid="stSidebar"],
+    section[data-testid="stSidebar"] {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        height: 100vh !important;
+        width: 21rem !important;
+        max-width: 80vw !important;
+        transform: translateX(-100%) !important; /* ✅ HIDE OFF-SCREEN */
+        transition: transform 0.3s ease-in-out !important;
+        z-index: 9998 !important;
+        background: white !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        box-shadow: 0 0 50px rgba(0,0,0,.3) !important;
+    }
+    
     /* When our checkbox is checked, force sidebar visible and overlay on */
     body:has(#vb-nav-toggle:checked) [data-testid="stSidebar"],
     .main:has(#vb-nav-toggle:checked) [data-testid="stSidebar"],
     [data-testid="stAppViewContainer"]:has(#vb-nav-toggle:checked) [data-testid="stSidebar"] {
-        transform: translateX(0) !important;
-        left: 0 !important;
-        margin-left: 0 !important;
+        transform: translateX(0) !important; /* ✅ SLIDE IN */
         display: block !important;
         visibility: visible !important;
         opacity: 1 !important;
         /* Put the sidebar absolutely on top of everything */
         z-index: 2147483647 !important; /* max int for safety */
-        position: fixed !important;
-        top: 0 !important;
-        height: 100vh !important;
-        width: 21rem !important; /* Standard Streamlit sidebar width */
-        max-width: 80vw !important; /* Don't take full screen on small devices */
-        background: white !important; /* Ensure background is visible */
-        overflow-y: auto !important; /* Enable scrolling if content is long */
-        overflow-x: hidden !important;
     }
     
     /* Ensure sidebar CONTENT container is properly sized and visible */
@@ -820,10 +828,20 @@ def inject_mobile_nav_helpers():
         return false;
     }
 
-    // Close sidebar by unchecking the CSS-only checkbox (if present)
+    // Close sidebar by unchecking the CSS-only checkbox and resetting position
     function closeSidebar() {
         const toggle = document.getElementById('vb-nav-toggle');
-        if (toggle) toggle.checked = false;
+        if (toggle) {
+            toggle.checked = false;
+        }
+        
+        // Also force sidebar off-screen via CSS as backup
+        const sidebar = document.querySelector('[data-testid="stSidebar"]') || 
+                       document.querySelector('section[data-testid="stSidebar"]');
+        if (sidebar && isMobileView()) {
+            sidebar.style.transform = 'translateX(-100%)';
+            sidebar.style.transition = 'transform 0.3s ease-in-out';
+        }
     }
     
     // Force hamburger to be visible and properly styled
@@ -868,11 +886,26 @@ def inject_mobile_nav_helpers():
             els.fab.style.display = 'none';
         }
 
-        // Clicking overlay closes the menu (uncheck)
+        // Clicking overlay closes the menu (uncheck) - with multiple event types
         const overlay = document.getElementById('vb-nav-overlay');
         if (overlay && !overlay.dataset.bound) {
-            overlay.addEventListener('click', closeSidebar);
+            // Use multiple event listeners for maximum compatibility
+            overlay.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('VocalBrand: Overlay clicked - closing sidebar');
+                closeSidebar();
+            }, false);
+            
+            overlay.addEventListener('touchstart', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('VocalBrand: Overlay touched - closing sidebar');
+                closeSidebar();
+            }, { passive: false });
+            
             overlay.dataset.bound = '1';
+            console.log('VocalBrand: ✓ Overlay close handlers attached');
         }
     }
     
@@ -943,6 +976,12 @@ def inject_mobile_nav_helpers():
         enforceHamburgerVisibility();
         syncFab();
         
+        // CRITICAL: Force sidebar closed on mobile by default
+        if (isMobileView()) {
+            closeSidebar();
+            console.log('VocalBrand: Sidebar forced closed on init');
+        }
+        
         // Handle window resize
         let resizeTimeout;
         window.addEventListener('resize', function() {
@@ -950,13 +989,33 @@ def inject_mobile_nav_helpers():
             resizeTimeout = setTimeout(function() {
                 enforceHamburgerVisibility();
                 syncFab();
+                // Close sidebar when resizing to avoid visual bugs
+                if (isMobileView()) {
+                    closeSidebar();
+                }
             }, 200);
         });
         
         // Persistent monitoring to override any CSS that might hide elements
+        // AND ensure sidebar is properly closed when checkbox is unchecked
         setInterval(function() {
             enforceHamburgerVisibility();
             syncFab();
+            
+            // CRITICAL: Ensure sidebar stays hidden when checkbox is unchecked
+            if (isMobileView()) {
+                const toggle = document.getElementById('vb-nav-toggle');
+                const sidebar = document.querySelector('[data-testid="stSidebar"]') || 
+                               document.querySelector('section[data-testid="stSidebar"]');
+                
+                if (toggle && !toggle.checked && sidebar) {
+                    // Force sidebar off-screen if checkbox is unchecked
+                    if (sidebar.style.transform !== 'translateX(-100%)') {
+                        sidebar.style.transform = 'translateX(-100%)';
+                        sidebar.style.transition = 'transform 0.3s ease-in-out';
+                    }
+                }
+            }
         }, CHECK_INTERVAL);
         
         console.log('VocalBrand: Mobile navigation initialized ✓');
