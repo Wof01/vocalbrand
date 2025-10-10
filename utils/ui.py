@@ -393,11 +393,18 @@ section[data-testid="stSidebar"] {
         background: linear-gradient(135deg,var(--primary-blue) 0%, #2d3748 100%); 
         box-shadow: 0 10px 25px rgba(0,0,0,.2);
         transition: all .3s ease;
+        -webkit-tap-highlight-color: transparent;
+        user-select: none;
     }
     
     .vb-fab-menu:hover {
         transform: scale(1.1) rotate(90deg);
         box-shadow: 0 15px 30px rgba(0,0,0,.3);
+    }
+    
+    .vb-fab-menu:active {
+        transform: scale(0.95) rotate(90deg);
+        box-shadow: 0 8px 20px rgba(0,0,0,.25);
     }
     
     .vb-fab-menu:focus { 
@@ -407,7 +414,22 @@ section[data-testid="stSidebar"] {
     
     .vb-fab-menu::after { 
         content: "☰"; 
-        font-size: 24px; 
+        font-size: 24px;
+        transition: transform .3s ease;
+    }
+    
+    .vb-fab-menu:hover::after {
+        transform: rotate(-90deg);
+    }
+    
+    /* Pulse animation to draw attention */
+    @keyframes fabPulse {
+        0%, 100% { box-shadow: 0 10px 25px rgba(0,0,0,.2); }
+        50% { box-shadow: 0 10px 25px rgba(0,0,0,.2), 0 0 0 8px rgba(26, 54, 93, .15); }
+    }
+    
+    .vb-fab-menu.pulse {
+        animation: fabPulse 2s ease-in-out infinite;
     }
 }
 
@@ -502,16 +524,71 @@ def inject_mobile_nav_helpers():
         };
     }
     
-    // Open sidebar by clicking native hamburger
-    function openSidebar() {
-        const els = getElements();
-        if (els.hamburgerBtn) {
-            els.hamburgerBtn.click();
-            console.log('VocalBrand: Sidebar opened');
-        } else if (els.hamburger) {
-            els.hamburger.click();
-            console.log('VocalBrand: Sidebar opened (fallback)');
+    // Open sidebar by clicking native hamburger - ENHANCED VERSION
+    function openSidebar(e) {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
         }
+        
+        const els = getElements();
+        
+        // Method 1: Click the button directly
+        if (els.hamburgerBtn) {
+            try {
+                els.hamburgerBtn.click();
+                console.log('VocalBrand: Sidebar opened via button click');
+                return true;
+            } catch (err) {
+                console.warn('VocalBrand: Button click failed:', err);
+            }
+        }
+        
+        // Method 2: Dispatch native events on button
+        if (els.hamburgerBtn) {
+            try {
+                const clickEvent = new MouseEvent('click', {
+                    bubbles: true,
+                    cancelable: true,
+                    view: window
+                });
+                els.hamburgerBtn.dispatchEvent(clickEvent);
+                console.log('VocalBrand: Sidebar opened via button event');
+                return true;
+            } catch (err) {
+                console.warn('VocalBrand: Button event failed:', err);
+            }
+        }
+        
+        // Method 3: Click the parent container
+        if (els.hamburger) {
+            try {
+                els.hamburger.click();
+                console.log('VocalBrand: Sidebar opened via parent click');
+                return true;
+            } catch (err) {
+                console.warn('VocalBrand: Parent click failed:', err);
+            }
+        }
+        
+        // Method 4: Directly toggle sidebar visibility (last resort)
+        if (els.sidebar) {
+            try {
+                const currentDisplay = window.getComputedStyle(els.sidebar).display;
+                if (currentDisplay === 'none' || els.sidebar.style.transform === 'translateX(-100%)') {
+                    els.sidebar.style.display = 'block';
+                    els.sidebar.style.transform = 'translateX(0)';
+                    els.sidebar.style.visibility = 'visible';
+                    console.log('VocalBrand: Sidebar opened via direct style manipulation');
+                    return true;
+                }
+            } catch (err) {
+                console.warn('VocalBrand: Direct manipulation failed:', err);
+            }
+        }
+        
+        console.error('VocalBrand: All sidebar opening methods failed');
+        return false;
     }
     
     // Force hamburger to be visible and properly styled
@@ -561,13 +638,34 @@ def inject_mobile_nav_helpers():
     function init() {
         const els = getElements();
         
-        // Attach FAB click handler
+        // Attach FAB click handler with multiple event types
         if (els.fab) {
-            els.fab.addEventListener('click', openSidebar);
-            els.fab.addEventListener('touchstart', function(e) {
+            // Remove any existing listeners to prevent duplicates
+            const newFab = els.fab.cloneNode(true);
+            els.fab.parentNode.replaceChild(newFab, els.fab);
+            
+            // Click event
+            newFab.addEventListener('click', function(e) {
+                console.log('VocalBrand: FAB clicked');
+                openSidebar(e);
+            });
+            
+            // Touch events for better mobile support
+            newFab.addEventListener('touchstart', function(e) {
+                console.log('VocalBrand: FAB touched');
                 e.preventDefault();
-                openSidebar();
+                openSidebar(e);
             }, { passive: false });
+            
+            // Pointer events (modern alternative)
+            newFab.addEventListener('pointerdown', function(e) {
+                if (e.pointerType === 'touch' || e.pointerType === 'pen') {
+                    console.log('VocalBrand: FAB pointer down');
+                    openSidebar(e);
+                }
+            });
+            
+            console.log('VocalBrand: FAB event listeners attached');
         }
         
         // Initial setup
@@ -600,10 +698,23 @@ def inject_mobile_nav_helpers():
         init();
     }
     
-    // Re-initialize on Streamlit reruns
+    // Re-initialize on Streamlit reruns (multiple attempts for reliability)
     setTimeout(init, 100);
     setTimeout(init, 500);
     setTimeout(init, 1000);
+    setTimeout(init, 2000); // Extra attempt for slower connections
+    
+    // Add a visual indicator that FAB is ready (pulse animation)
+    setTimeout(function() {
+        const fab = document.getElementById('vb-fab-menu');
+        if (fab && isMobileView()) {
+            fab.classList.add('pulse');
+            // Remove pulse after 5 seconds
+            setTimeout(function() {
+                fab.classList.remove('pulse');
+            }, 5000);
+        }
+    }, 1500);
 })();
 </script>
     """
