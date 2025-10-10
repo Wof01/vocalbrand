@@ -189,6 +189,78 @@ SUPREME_CSS = """
     [data-testid="stSidebarNavOpen"] { 
         position: relative !important;
     }
+    
+    /* Hide mobile hamburger menu on desktop */
+    [data-testid="stSidebarNavOpen"] {
+        display: none !important;
+    }
+}
+
+/* ===============================================
+   DESKTOP SIDEBAR COLLAPSE BUTTON FIX
+   =============================================== */
+@media (min-width: 993px) {
+    /* Ensure sidebar collapse button is always visible */
+    button[kind="header"] {
+        visibility: visible !important;
+        opacity: 1 !important;
+        display: flex !important;
+    }
+    
+    /* Style the collapse button when sidebar is open (<<) */
+    [data-testid="stSidebar"][aria-expanded="true"] button[kind="header"]::after {
+        content: "«" !important;
+        font-size: 24px !important;
+        font-weight: bold !important;
+        color: var(--primary-blue) !important;
+    }
+    
+    /* Make the expand button visible when sidebar is collapsed (>>) */
+    [data-testid="stSidebar"][aria-expanded="false"] ~ * button[kind="header"],
+    [data-testid="collapsedControl"] button {
+        position: fixed !important;
+        left: 0 !important;
+        top: 50% !important;
+        transform: translateY(-50%) !important;
+        z-index: 999999 !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        display: flex !important;
+        background: var(--primary-blue) !important;
+        color: white !important;
+        border-radius: 0 8px 8px 0 !important;
+        padding: 12px 8px !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    /* Style the expand button (>>) */
+    [data-testid="collapsedControl"] button::after,
+    [data-testid="stSidebar"][aria-expanded="false"] ~ * button[kind="header"]::after {
+        content: "»" !important;
+        font-size: 24px !important;
+        font-weight: bold !important;
+        color: white !important;
+    }
+    
+    /* Hover effect for collapse/expand button */
+    button[kind="header"]:hover,
+    [data-testid="collapsedControl"] button:hover {
+        background: var(--accent-gold) !important;
+        transform: translateY(-50%) scale(1.05) !important;
+        box-shadow: 0 6px 16px rgba(0,0,0,0.2) !important;
+    }
+    
+    /* Ensure the button container is always visible */
+    [data-testid="collapsedControl"] {
+        visibility: visible !important;
+        opacity: 1 !important;
+        display: block !important;
+        position: fixed !important;
+        left: 0 !important;
+        top: 50% !important;
+        z-index: 999999 !important;
+    }
 }
 
 /* ===============================================
