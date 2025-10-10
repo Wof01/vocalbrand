@@ -149,10 +149,33 @@ SUPREME_CSS = """
         color: white;
     }
     
-    /* Ensure sidebar overlay sits above content */
+    /* Ensure sidebar overlay sits above content AND properly sized */
     section[data-testid="stSidebar"] { 
         z-index: 9998 !important;
-        box-shadow: 0 0 50px rgba(0,0,0,.3);
+        box-shadow: 0 0 50px rgba(0,0,0,.3) !important;
+        width: 21rem !important;
+        max-width: 80vw !important;
+        background: white !important;
+    }
+    
+    /* Ensure sidebar content wrapper is properly visible */
+    section[data-testid="stSidebar"] > div {
+        width: 100% !important;
+        height: 100% !important;
+        padding: 1rem !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+    }
+    
+    /* Ensure all sidebar widgets and content are visible */
+    section[data-testid="stSidebar"] .stMarkdown,
+    section[data-testid="stSidebar"] .stRadio,
+    section[data-testid="stSidebar"] .stButton,
+    section[data-testid="stSidebar"] .stImage,
+    section[data-testid="stSidebar"] [data-testid] {
+        visibility: visible !important;
+        opacity: 1 !important;
+        display: block !important;
     }
     
     /* Add padding to main content to avoid overlap with sticky hamburger */
@@ -528,6 +551,30 @@ def inject_mobile_nav_helpers():
         position: fixed !important;
         top: 0 !important;
         height: 100vh !important;
+        width: 21rem !important; /* Standard Streamlit sidebar width */
+        max-width: 80vw !important; /* Don't take full screen on small devices */
+        background: white !important; /* Ensure background is visible */
+        overflow-y: auto !important; /* Enable scrolling if content is long */
+        overflow-x: hidden !important;
+    }
+    
+    /* Ensure sidebar CONTENT container is properly sized and visible */
+    body:has(#vb-nav-toggle:checked) [data-testid="stSidebar"] > div,
+    .main:has(#vb-nav-toggle:checked) [data-testid="stSidebar"] > div,
+    [data-testid="stAppViewContainer"]:has(#vb-nav-toggle:checked) [data-testid="stSidebar"] > div {
+        width: 100% !important;
+        height: 100% !important;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        overflow-y: auto !important;
+        padding: 1rem !important;
+    }
+    
+    /* Ensure all sidebar child elements are visible */
+    body:has(#vb-nav-toggle:checked) [data-testid="stSidebar"] * {
+        visibility: visible !important;
+        opacity: 1 !important;
     }
 
     /* Dim the page behind when open */
@@ -690,14 +737,32 @@ def inject_mobile_nav_helpers():
         // Method 5: Directly manipulate sidebar CSS (Streamlit Cloud compatible)
         if (els.sidebar) {
             try {
-                // Remove any negative transforms
-                els.sidebar.style.transform = 'translateX(0)';
-                els.sidebar.style.marginLeft = '0';
-                els.sidebar.style.left = '0';
-                els.sidebar.style.display = 'block';
-                els.sidebar.style.visibility = 'visible';
-                els.sidebar.style.opacity = '1';
-                els.sidebar.style.zIndex = '999999';
+                // Remove any negative transforms and force visible
+                els.sidebar.style.cssText = `
+                    transform: translateX(0) !important;
+                    margin-left: 0 !important;
+                    left: 0 !important;
+                    display: block !important;
+                    visibility: visible !important;
+                    opacity: 1 !important;
+                    z-index: 999999 !important;
+                    position: fixed !important;
+                    top: 0 !important;
+                    height: 100vh !important;
+                    width: 21rem !important;
+                    max-width: 80vw !important;
+                    background: white !important;
+                    overflow-y: auto !important;
+                    overflow-x: hidden !important;
+                    box-shadow: 0 0 50px rgba(0,0,0,.3) !important;
+                `;
+                
+                // Force all child elements visible
+                const children = els.sidebar.querySelectorAll('*');
+                children.forEach(child => {
+                    child.style.visibility = 'visible';
+                    child.style.opacity = '1';
+                });
                 
                 // Also try setting attribute
                 els.sidebar.setAttribute('data-sidebar-open', 'true');
