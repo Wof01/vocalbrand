@@ -134,6 +134,7 @@ from payment import PaymentManager
 from utils.audio_utils import validate_audio_bytes, quality_score
 from utils.ffmpeg_auto import attempt_auto_ffmpeg
 from utils.ui import inject_css, inject_mobile_nav_helpers
+from utils.email_utils import send_contact_email, is_email_configured
 
 load_dotenv()
 
@@ -1258,6 +1259,78 @@ def page_admin() -> None:
     st.json(BRIDGE_STATE.snapshot())
 
 
+def page_contact() -> None:
+    """Contact form page."""
+    st.title("📧 Contact Us")
+    st.markdown("Have questions or need help? Send us a message and we'll get back to you soon!")
+    
+    # Check if email is configured
+    if not is_email_configured():
+        st.warning("⚠️ Contact form is not yet configured. Please check back soon or reach out directly.")
+        return
+    
+    # Contact form
+    with st.form("contact_form", clear_on_submit=True):
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            name = st.text_input("Your Name *", placeholder="John Doe")
+        
+        with col2:
+            email = st.text_input("Your Email *", placeholder="john@example.com")
+        
+        subject = st.text_input("Subject *", placeholder="Question about pricing...")
+        
+        message = st.text_area(
+            "Your Message *",
+            placeholder="Tell us what you need help with...",
+            height=200
+        )
+        
+        submitted = st.form_submit_button("📨 Send Message", use_container_width=True)
+        
+        if submitted:
+            # Validate inputs
+            if not name or not email or not subject or not message:
+                st.error("❌ Please fill in all fields.")
+            elif "@" not in email or "." not in email:
+                st.error("❌ Please enter a valid email address.")
+            elif len(message) < 10:
+                st.error("❌ Please provide a more detailed message (at least 10 characters).")
+            else:
+                # Send email
+                with st.spinner("Sending your message..."):
+                    success, result_msg = send_contact_email(name, email, subject, message)
+                
+                if success:
+                    st.success(f"✅ {result_msg}")
+                    st.balloons()
+                else:
+                    st.error(f"❌ {result_msg}")
+    
+    # Info section
+    st.markdown("---")
+    st.markdown("### 💡 Other ways to reach us")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("""
+        **Response Time:**
+        - Usually within 24 hours
+        - Priority support for Pro members
+        """)
+    
+    with col2:
+        st.markdown("""
+        **What we can help with:**
+        - Technical questions
+        - Billing inquiries
+        - Feature requests
+        - Bug reports
+        """)
+
+
 def main() -> None:
     configure_page()
     init_db()
@@ -1286,7 +1359,7 @@ def main() -> None:
         return
 
     st.title("🎙️ VocalBrand Supreme Console")
-    nav_options = ["Onboarding", "Clone Voice", "Generate Speech"]
+    nav_options = ["Onboarding", "Clone Voice", "Generate Speech", "Contact"]
     if st.session_state.get("user_is_admin"):
         nav_options.append("Admin")
     current_page = st.sidebar.radio(
@@ -1302,6 +1375,8 @@ def main() -> None:
         page_clone()
     elif current_page == "Generate Speech":
         page_generate()
+    elif current_page == "Contact":
+        page_contact()
     elif current_page == "Admin":
         page_admin()
 
