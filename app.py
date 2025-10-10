@@ -1084,7 +1084,6 @@ def render_upgrade_section(container: Any) -> None:
     # Help section
     if visible_setups or visible_packs or annual_link:
         container.markdown("---")
-        support_email = os.getenv("SUPPORT_EMAIL", "support@vocalbrand.app")
         
         # Critical: explain automatic activation
         container.info(
@@ -1094,7 +1093,7 @@ def render_upgrade_section(container: Any) -> None:
         
         with container.expander("💡 Payment Options FAQ", expanded=False):
             container.markdown(
-                f"""
+                """
                 **What's included in subscriptions?**
                 - Monthly Pro (€29/mo): Unlimited generations, priority processing, commercial license
                 - Annual Pro (€290/yr): Same as Monthly, but 17% cheaper (2 months free)
@@ -1107,13 +1106,18 @@ def render_upgrade_section(container: Any) -> None:
                 **What are Minutes Packs?**
                 - Additional TTS minutes for billing/accounting purposes.
                 - These purchases track usage but don't automatically change in-app quotas while features are locked.
-                - For account crediting or custom enterprise pricing, contact {support_email}
+                - For account crediting or custom enterprise pricing, use the Contact page.
                 
                 **How do I switch between Monthly and Annual?**
                 - Cancel your Monthly subscription in Stripe, then purchase Annual via the Payment Link above.
-                - Or contact {support_email} for assistance with the switch.
+                - Need help with the switch? Visit the Contact page for assistance.
                 """
             )
+            
+            # Add Contact Support button prominently
+            if container.button("📧 Contact Support", key="contact_from_faq", use_container_width=True):
+                st.session_state["nav_page"] = "Contact"
+                safe_rerun()
     
     if st.session_state.get("latest_checkout_id"):
         container.caption(f"Latest checkout: {st.session_state['latest_checkout_id']}")
@@ -1220,23 +1224,235 @@ def render_metrics_panel() -> None:
 
 
 def page_onboarding() -> None:
-    st.subheader("Onboarding")
-    st.markdown(
-        """
-        1. Prepare a quiet 30-60 second voice sample.
-        2. Record directly in the browser or upload a WAV/MP3 file.
-        3. Clone the voice to get a reusable voice ID.
-        4. Generate speech with your custom voice.
-        """
-    )
+    """Enhanced onboarding with clear value propositions and step-by-step guidance."""
+    
+    # Hero section with emotional appeal
+    st.markdown("""
+    <div style="text-align: center; padding: 2rem 0;">
+        <h1 style="font-size: 2.5rem; font-weight: 700; 
+                   background: linear-gradient(135deg, #1a365d 0%, #d4af37 100%);
+                   -webkit-background-clip: text;
+                   -webkit-text-fill-color: transparent;
+                   margin-bottom: 1rem;">
+            🎙️ Welcome to VocalBrand Supreme
+        </h1>
+        <p style="font-size: 1.2rem; color: #64748b; max-width: 700px; margin: 0 auto;">
+            Transform your voice into a digital asset. Clone once, generate unlimited professional audio in seconds.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Quick start steps with visual indicators
+    st.markdown("### 🚀 Get Started in 4 Simple Steps")
+    
+    from utils.ui import render_steps
+    render_steps(1, 4)  # Show we're on step 1 of 4
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.markdown("""
+        <div class="vb-card" style="text-align: center; min-height: 180px;">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">🎤</div>
+            <strong>1. Record Sample</strong>
+            <p style="font-size: 0.85rem; color: #64748b; margin-top: 0.5rem;">
+                30-60 seconds of clear voice in a quiet space
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("""
+        <div class="vb-card" style="text-align: center; min-height: 180px;">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">🧬</div>
+            <strong>2. Clone Voice</strong>
+            <p style="font-size: 0.85rem; color: #64748b; margin-top: 0.5rem;">
+                AI analyzes your voice patterns & creates a unique voice ID
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown("""
+        <div class="vb-card" style="text-align: center; min-height: 180px;">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">✍️</div>
+            <strong>3. Write Script</strong>
+            <p style="font-size: 0.85rem; color: #64748b; margin-top: 0.5rem;">
+                Enter any text you want spoken in your voice
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col4:
+        st.markdown("""
+        <div class="vb-card" style="text-align: center; min-height: 180px;">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">🎵</div>
+            <strong>4. Generate Audio</strong>
+            <p style="font-size: 0.85rem; color: #64748b; margin-top: 0.5rem;">
+                Download professional audio in MP3 or WAV format
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+    
     st.markdown("---")
-    st.markdown("### Why VocalBrand Supreme?")
-    cols = st.columns(3)
-    cols[0].metric("Uptime", "99.9%", "enterprise-grade")
-    cols[1].metric("Fallback voices", "4 premium")
-    cols[2].metric("Latency", "< 1.2s", "average")
+    
+    # Social proof and trust indicators
+    st.markdown("### 💎 Why VocalBrand Supreme?")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("""
+        <div class="vb-card" style="background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); border-color: #10b981;">
+            <div style="text-align: center;">
+                <h2 style="color: #065f46; margin: 0; font-size: 2.5rem; font-weight: 700;">99.9%</h2>
+                <p style="color: #047857; font-weight: 600; margin: 0.5rem 0 0 0;">Uptime</p>
+                <p style="color: #059669; font-size: 0.85rem; margin: 0.25rem 0 0 0;">Enterprise-grade reliability</p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("""
+        <div class="vb-card" style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-color: #3b82f6;">
+            <div style="text-align: center;">
+                <h2 style="color: #1e40af; margin: 0; font-size: 2.5rem; font-weight: 700;">4</h2>
+                <p style="color: #1e3a8a; font-weight: 600; margin: 0.5rem 0 0 0;">Premium Voices</p>
+                <p style="color: #2563eb; font-size: 0.85rem; margin: 0.25rem 0 0 0;">Automatic fallback protection</p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown("""
+        <div class="vb-card" style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-color: #f59e0b;">
+            <div style="text-align: center;">
+                <h2 style="color: #92400e; margin: 0; font-size: 2.5rem; font-weight: 700;">&lt;1.2s</h2>
+                <p style="color: #b45309; font-weight: 600; margin: 0.5rem 0 0 0;">Average Latency</p>
+                <p style="color: #d97706; font-size: 0.85rem; margin: 0.25rem 0 0 0;">Lightning-fast generation</p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
     st.markdown("---")
-    render_metrics_panel()
+    
+    # Use cases to inspire users
+    st.markdown("### 🎯 Perfect For")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("""
+        **Content Creators:**
+        - 🎬 YouTube voiceovers
+        - 🎙️ Podcast production
+        - 📱 Social media content
+        - 🎮 Gaming commentary
+        
+        **Business Professionals:**
+        - 📞 IVR & phone systems
+        - 📧 Email marketing videos
+        - 🎓 Training materials
+        - 🔔 Notification systems
+        """)
+    
+    with col2:
+        st.markdown("""
+        **Agencies & Teams:**
+        - 🏢 Client presentations
+        - 📊 Demo videos
+        - 🌐 Website audio
+        - 🎯 Ad campaigns
+        
+        **Educators & Trainers:**
+        - 📚 E-learning courses
+        - 🎤 Audiobooks
+        - 🧑‍🏫 Lecture recordings
+        - 📖 Educational content
+        """)
+    
+    st.markdown("---")
+    
+    # System metrics in an elegant expander
+    with st.expander("📊 System Performance Metrics", expanded=False):
+        render_metrics_panel()
+    
+    # Call to action
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                padding: 2rem; 
+                border-radius: 12px; 
+                color: white; 
+                text-align: center;
+                margin-top: 2rem;">
+        <h3 style="margin: 0 0 1rem 0;">Ready to Clone Your Voice? 🚀</h3>
+        <p style="margin: 0 0 1rem 0; opacity: 0.95;">
+            Head to the <strong>Clone Voice</strong> page to get started, or explore <strong>Generate Speech</strong> to try our demo voices!
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Quick tips section
+    st.markdown("---")
+    st.markdown("### 💡 Pro Tips for Best Results")
+    
+    with st.expander("🎤 Recording Quality Tips"):
+        st.markdown("""
+        **For best voice cloning results:**
+        
+        ✅ **DO:**
+        - Record in a quiet room (no background noise)
+        - Speak naturally and clearly
+        - Use good quality microphone (built-in is usually fine)
+        - Read varied content with different emotions
+        - Aim for 60 seconds of audio
+        - Maintain consistent volume
+        
+        ❌ **AVOID:**
+        - Recording in noisy environments
+        - Speaking too close or too far from mic
+        - Monotone reading
+        - Audio shorter than 30 seconds
+        - Distorted or clipped audio
+        - Multiple speakers in the sample
+        """)
+    
+    with st.expander("⚡ Speed & Quality"):
+        st.markdown("""
+        **Voice Cloning Speed:**
+        - Typically completes in 30-45 seconds
+        - Processing happens on ElevenLabs servers
+        - You'll get a unique voice ID instantly
+        
+        **Generation Speed:**
+        - Most generations: < 2 seconds
+        - Average: 1.2 seconds
+        - Longer texts may take 3-5 seconds
+        - Premium users get priority processing
+        """)
+    
+    with st.expander("💎 Upgrading to Pro"):
+        st.markdown("""
+        **Free Tier Includes:**
+        - 3 test generations to try the system
+        - Access to demo voices
+        - Basic voice cloning
+        
+        **Pro Tier Gets You:**
+        - ✨ **Unlimited generations**
+        - ⚡ Priority processing queue
+        - 💼 Commercial license
+        - 🎛️ Advanced voice controls
+        - 🛟 24/7 premium support
+        - 🎯 No rate limits
+        
+        **Pricing:**
+        - Monthly: €29/month (cancel anytime)
+        - Annual: €290/year (save 17% - 2 months free!)
+        
+        👉 Check the sidebar for upgrade options
+        """)
+
 
 
 def page_clone() -> None:
@@ -1260,75 +1476,250 @@ def page_admin() -> None:
 
 
 def page_contact() -> None:
-    """Contact form page."""
+    """Contact form page with enhanced UX."""
     st.title("📧 Contact Us")
-    st.markdown("Have questions or need help? Send us a message and we'll get back to you soon!")
+    
+    # Professional hero section
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                padding: 2rem; 
+                border-radius: 12px; 
+                color: white; 
+                margin-bottom: 2rem;
+                text-align: center;">
+        <h3 style="margin: 0 0 0.5rem 0;">We're Here to Help! 🚀</h3>
+        <p style="margin: 0; opacity: 0.95;">
+            Have questions about pricing, features, or need technical support? 
+            Our team typically responds within 24 hours.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
     
     # Check if email is configured
     if not is_email_configured():
-        st.warning("⚠️ Contact form is not yet configured. Please check back soon or reach out directly.")
+        st.warning("""
+        ⚠️ **Contact form is currently being configured.** 
+        
+        In the meantime, you can reach us through:
+        - Our support portal (check your account dashboard)
+        - The in-app chat feature
+        - Your account manager if you're on a premium plan
+        """)
         return
     
-    # Contact form
+    # Contact form with better visual hierarchy
     with st.form("contact_form", clear_on_submit=True):
+        st.markdown("### Send us a message")
+        
         col1, col2 = st.columns(2)
         
         with col1:
-            name = st.text_input("Your Name *", placeholder="John Doe")
+            name = st.text_input(
+                "Your Name *", 
+                placeholder="Jane Smith",
+                help="How should we address you?"
+            )
         
         with col2:
-            email = st.text_input("Your Email *", placeholder="john@example.com")
+            email = st.text_input(
+                "Your Email *", 
+                placeholder="jane@company.com",
+                help="We'll reply to this address"
+            )
         
-        subject = st.text_input("Subject *", placeholder="Question about pricing...")
+        # Subject dropdown for better categorization
+        subject_options = [
+            "General Question",
+            "Pricing & Billing",
+            "Technical Support",
+            "Feature Request",
+            "Bug Report",
+            "Partnership Inquiry",
+            "Other"
+        ]
+        subject_type = st.selectbox(
+            "Subject Category *",
+            subject_options,
+            help="Help us route your message to the right team"
+        )
+        
+        subject_detail = st.text_input(
+            "Subject Details *",
+            placeholder="Brief description of your inquiry...",
+            help="A short summary helps us respond faster"
+        )
         
         message = st.text_area(
             "Your Message *",
-            placeholder="Tell us what you need help with...",
-            height=200
+            placeholder="Please provide as much detail as possible. For technical issues, include:\n• What you were trying to do\n• What happened instead\n• Any error messages you saw",
+            height=200,
+            help="The more details you provide, the better we can help"
         )
         
-        submitted = st.form_submit_button("📨 Send Message", use_container_width=True)
+        # Combine subject for email
+        full_subject = f"[{subject_type}] {subject_detail}" if subject_detail else subject_type
+        
+        # Submit button with enhanced styling
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            submitted = st.form_submit_button(
+                "📨 Send Message", 
+                use_container_width=True,
+                type="primary"
+            )
         
         if submitted:
-            # Validate inputs
-            if not name or not email or not subject or not message:
-                st.error("❌ Please fill in all fields.")
-            elif "@" not in email or "." not in email:
-                st.error("❌ Please enter a valid email address.")
-            elif len(message) < 10:
-                st.error("❌ Please provide a more detailed message (at least 10 characters).")
+            # Validate inputs with helpful error messages
+            errors = []
+            if not name or len(name.strip()) < 2:
+                errors.append("Please enter your full name (at least 2 characters)")
+            if not email or "@" not in email or "." not in email.split("@")[-1]:
+                errors.append("Please enter a valid email address")
+            if not subject_detail or len(subject_detail.strip()) < 3:
+                errors.append("Please provide a subject (at least 3 characters)")
+            if not message or len(message.strip()) < 10:
+                errors.append("Please provide a detailed message (at least 10 characters)")
+            
+            if errors:
+                for error in errors:
+                    st.error(f"❌ {error}")
             else:
-                # Send email
-                with st.spinner("Sending your message..."):
-                    success, result_msg = send_contact_email(name, email, subject, message)
+                # Send email with loading state
+                with st.spinner("✨ Sending your message..."):
+                    success, result_msg = send_contact_email(
+                        name.strip(), 
+                        email.strip(), 
+                        full_subject, 
+                        message.strip()
+                    )
                 
                 if success:
-                    st.success(f"✅ {result_msg}")
+                    st.success(f"""
+                    ✅ **Message sent successfully!**
+                    
+                    {result_msg}
+                    
+                    📬 You should receive a confirmation email shortly at **{email}**
+                    """)
                     st.balloons()
                 else:
-                    st.error(f"❌ {result_msg}")
+                    st.error(f"""
+                    ❌ **Oops! Something went wrong.**
+                    
+                    {result_msg}
+                    
+                    💡 **What to do next:**
+                    - Check your internet connection
+                    - Try again in a few minutes
+                    - If the problem persists, check your account dashboard for alternative contact methods
+                    """)
     
-    # Info section
+    # Info section with visual cards
     st.markdown("---")
-    st.markdown("### 💡 Other ways to reach us")
+    st.markdown("### 💡 What to expect")
     
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
     
     with col1:
         st.markdown("""
-        **Response Time:**
-        - Usually within 24 hours
-        - Priority support for Pro members
-        """)
+        <div class="vb-card" style="text-align: center;">
+            <div style="font-size: 2rem; margin-bottom: 0.5rem;">⚡</div>
+            <strong>Fast Response</strong>
+            <p style="font-size: 0.9rem; color: #64748b; margin-top: 0.5rem;">
+                Usually within 24 hours
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
     
     with col2:
         st.markdown("""
-        **What we can help with:**
-        - Technical questions
-        - Billing inquiries
-        - Feature requests
-        - Bug reports
+        <div class="vb-card" style="text-align: center;">
+            <div style="font-size: 2rem; margin-bottom: 0.5rem;">💎</div>
+            <strong>Priority for Pro</strong>
+            <p style="font-size: 0.9rem; color: #64748b; margin-top: 0.5rem;">
+                Premium members get priority support
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown("""
+        <div class="vb-card" style="text-align: center;">
+            <div style="font-size: 2rem; margin-bottom: 0.5rem;">🎯</div>
+            <strong>Expert Help</strong>
+            <p style="font-size: 0.9rem; color: #64748b; margin-top: 0.5rem;">
+                Our team knows VocalBrand inside out
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Common questions quick links
+    st.markdown("---")
+    st.markdown("### 🔍 Common Questions")
+    
+    with st.expander("💰 Pricing & Plans"):
+        st.markdown("""
+        **Monthly Pro (€29/mo):**
+        - Unlimited voice generations
+        - Priority processing
+        - Commercial license
+        - Cancel anytime
+        
+        **Annual Pro (€290/yr):**
+        - Everything in Monthly
+        - Save 17% (2 months free)
+        - Best value for committed users
+        
+        👉 Visit the Onboarding page to see all payment options
         """)
+    
+    with st.expander("🎤 Voice Cloning Questions"):
+        st.markdown("""
+        **How long should my voice sample be?**
+        - Minimum: 30 seconds
+        - Recommended: 60 seconds
+        - Best quality: Clean, clear audio in a quiet environment
+        
+        **What formats are supported?**
+        - Record directly in the browser (recommended)
+        - Upload WAV, MP3, or M4A files
+        
+        **Can I clone multiple voices?**
+        - Yes! Each clone gets a unique voice ID
+        - Store unlimited voices in your account
+        """)
+    
+    with st.expander("🔧 Technical Support"):
+        st.markdown("""
+        **For fastest support, include:**
+        - What you were trying to do
+        - What happened instead
+        - Screenshots of any error messages
+        - Your browser and operating system
+        
+        **Common fixes:**
+        - Try refreshing the page
+        - Check your subscription status
+        - Ensure your browser has microphone permissions
+        - Clear your browser cache
+        """)
+    
+    with st.expander("💳 Billing Questions"):
+        st.markdown("""
+        **Subscription Management:**
+        - Monthly subscriptions can be cancelled anytime in Stripe
+        - Annual subscriptions provide 17% savings
+        - All payments are processed securely via Stripe
+        
+        **Refund Policy:**
+        - Contact us within 7 days for refund requests
+        - We're happy to work with you on any billing issues
+        
+        **Need an invoice?**
+        - Available for all Pro subscribers
+        - Request through this contact form
+        """)
+
 
 
 def main() -> None:
