@@ -500,7 +500,45 @@ def inject_mobile_nav_helpers():
     from streamlit import markdown
 
     html = """
-<button class="vb-fab-menu" id="vb-fab-menu" aria-label="Open navigation menu" title="Menu" tabindex="0"></button>
+<!-- CSS-only mobile nav toggle: hidden checkbox controls sidebar and overlay -->
+<input type="checkbox" id="vb-nav-toggle" class="vb-nav-toggle" aria-hidden="true" style="display:none" />
+<label for="vb-nav-toggle" class="vb-fab-menu" id="vb-fab-menu" aria-label="Open navigation menu" title="Menu" tabindex="0"></label>
+<label for="vb-nav-toggle" class="vb-nav-overlay" id="vb-nav-overlay" aria-hidden="true"></label>
+
+<style>
+/* CSS-only open state using :has() targeting Streamlit shells */
+@media (max-width: 992px) {
+    /* When our checkbox is checked, force sidebar visible and overlay on */
+    body:has(#vb-nav-toggle:checked) [data-testid="stSidebar"],
+    .main:has(#vb-nav-toggle:checked) [data-testid="stSidebar"],
+    [data-testid="stAppViewContainer"]:has(#vb-nav-toggle:checked) [data-testid="stSidebar"] {
+        transform: translateX(0) !important;
+        left: 0 !important;
+        margin-left: 0 !important;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        z-index: 999999 !important;
+        position: fixed !important;
+        top: 0 !important;
+        height: 100vh !important;
+    }
+
+    /* Dim the page behind when open */
+    body:has(#vb-nav-toggle:checked) .vb-nav-overlay,
+    .main:has(#vb-nav-toggle:checked) .vb-nav-overlay,
+    [data-testid="stAppViewContainer"]:has(#vb-nav-toggle:checked) .vb-nav-overlay {
+        pointer-events: auto !important;
+        opacity: .5 !important;
+    }
+
+    /* Overlay default (off) */
+    .vb-nav-overlay {
+        position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; z-index: 999998;
+        transition: opacity .2s ease;
+    }
+}
+</style>
 <script>
 (function(){
     'use strict';
@@ -691,6 +729,12 @@ def inject_mobile_nav_helpers():
         });
         return false;
     }
+
+    // Close sidebar by unchecking the CSS-only checkbox (if present)
+    function closeSidebar() {
+        const toggle = document.getElementById('vb-nav-toggle');
+        if (toggle) toggle.checked = false;
+    }
     
     // Force hamburger to be visible and properly styled
     function enforceHamburgerVisibility() {
@@ -723,7 +767,7 @@ def inject_mobile_nav_helpers():
         }
     }
     
-    // Sync FAB button visibility
+    // Sync FAB button visibility and overlay behavior
     function syncFab() {
         const els = getElements();
         if (!els.fab) return;
@@ -732,6 +776,13 @@ def inject_mobile_nav_helpers():
             els.fab.style.display = 'flex';
         } else {
             els.fab.style.display = 'none';
+        }
+
+        // Clicking overlay closes the menu (uncheck)
+        const overlay = document.getElementById('vb-nav-overlay');
+        if (overlay && !overlay.dataset.bound) {
+            overlay.addEventListener('click', closeSidebar);
+            overlay.dataset.bound = '1';
         }
     }
     
