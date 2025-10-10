@@ -618,6 +618,33 @@ section[data-testid="stSidebar"] {
     /* Fallback symbols if JS hasn’t updated text yet */
     #vb-desktop-toggle.vb-desktop-toggle::before { content: "«"; }
     body.vb-sidebar-collapsed #vb-desktop-toggle.vb-desktop-toggle::before { content: "»"; }
+
+    /* Ultra-supreme: drive desktop sidebar purely via a CSS class + var */
+    :root { --vb-sidebar-w: 21rem; }
+    body:not(.vb-sidebar-collapsed) [data-testid="stSidebar"],
+    body:not(.vb-sidebar-collapsed) section[data-testid="stSidebar"] {
+        position: sticky !important;
+        top: 0 !important;
+        left: 0 !important;
+        transform: translateX(0) !important;
+        width: var(--vb-sidebar-w) !important;
+        min-width: var(--vb-sidebar-w) !important;
+        max-width: var(--vb-sidebar-w) !important;
+        height: 100vh !important;
+        z-index: 1 !important;
+    }
+    body.vb-sidebar-collapsed [data-testid="stSidebar"],
+    body.vb-sidebar-collapsed section[data-testid="stSidebar"] {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        transform: translateX(calc(-1 * var(--vb-sidebar-w))) !important;
+        width: var(--vb-sidebar-w) !important;
+        min-width: var(--vb-sidebar-w) !important;
+        max-width: var(--vb-sidebar-w) !important;
+        height: 100vh !important;
+        z-index: 9999 !important;
+    }
 }
 @media (max-width: 992px) {
     #vb-desktop-toggle.vb-desktop-toggle { display: none !important; }
@@ -1211,381 +1238,278 @@ def inject_mobile_nav_helpers():
 })();
 
 // ============================================================
-// DESKTOP SIDEBAR TOGGLE FIX - ENSURE BUTTONS ALWAYS VISIBLE
+// VOCALBRAND SUPREME DESKTOP SIDEBAR TOGGLE (single-source of truth)
 // ============================================================
 (function() {
     'use strict';
-    
-    console.log('VocalBrand: Initializing desktop sidebar toggle fix...');
-    
-    function isDesktopView() {
-        return window.innerWidth >= 993;
-    }
-    
-    // Helper: determine if sidebar appears collapsed
-    function isCollapsed() {
-        const sidebar = document.querySelector('[data-testid="stSidebar"]');
-        if (!sidebar) return false;
-        
-        // Check multiple indicators
-        const collapsedControl = document.querySelector('[data-testid="collapsedControl"]');
-        if (collapsedControl && collapsedControl.offsetParent !== null) return true;
-        
-        // Check computed style
-        const computed = window.getComputedStyle(sidebar);
-        const transform = computed.transform;
-        if (transform && transform.includes('matrix') && transform.includes('-21')) return true;
-        
-        // Check position/visibility
-        const rect = sidebar.getBoundingClientRect();
-        if (rect.x < -100 || rect.width < 40) return true;
-        
-        // Check if sidebar is off-screen left
-        if (sidebar.style.transform && sidebar.style.transform.includes('translateX(-')) return true;
-        
-        return false;
-    }
-    
-    // Actively update our persistent desktop button state and click handler
-    function updateDesktopToggle() {
-        const btn = document.getElementById('vb-desktop-toggle');
-        if (!btn) return;
-        if (!isDesktopView()) {
-            btn.style.display = 'none';
-            return;
-        }
-        btn.style.display = 'flex';
-        const collapsed = isCollapsed();
-        // Prefer pseudo-element content; keep text as ARIA backup
-        btn.textContent = collapsed ? '»' : '«';
-        document.body.classList.toggle('vb-sidebar-collapsed', collapsed);
-    }
-    
-    // Core toggle operation: when user clicks our persistent button
-    function handleDesktopToggleClick() {
-        // Try to click Streamlit native buttons first
-        const collapsed = isCollapsed();
-        const collapsedControl = document.querySelector('[data-testid="collapsedControl"] button');
-        const collapseButton = document.querySelector('[data-testid="stSidebar"] button[kind="header"]');
-        try {
-            if (collapsed) {
-                if (collapsedControl) { collapsedControl.click(); }
-            } else {
-                if (collapseButton) { collapseButton.click(); }
-            }
-        } catch (e) {}
-        // Fallback: manipulate CSS if buttons are missing or click didn’t take effect
-        const sidebar = document.querySelector('[data-testid="stSidebar"]');
-        if (sidebar) {
-            if (collapsed) {
-                // Expand
-                sidebar.style.transform = 'translateX(0)';
-                sidebar.style.left = '0';
-                sidebar.style.position = 'sticky';
-                sidebar.style.zIndex = '1';
-            } else {
-                // Collapse
-                sidebar.style.transform = 'translateX(-100%)';
-                sidebar.style.position = 'fixed';
-                sidebar.style.left = '0';
-                sidebar.style.zIndex = '9999';
-            }
-        }
-        setTimeout(updateDesktopToggle, 50);
-    }
-    
-    function ensureSidebarButtonsVisible() {
-        if (!isDesktopView()) {
-            return; // Only run on desktop
-        }
-        
-        // Find the sidebar
-        const sidebar = document.querySelector('[data-testid="stSidebar"]');
-        if (!sidebar) {
-            return;
-        }
-        
-        // Ensure our persistent desktop toggle exists and is wired
-        const vbBtn = document.getElementById('vb-desktop-toggle');
-        if (vbBtn && !vbBtn.dataset.bound) {
-            vbBtn.addEventListener('click', handleDesktopToggleClick);
-            vbBtn.dataset.bound = '1';
-        }
-    updateDesktopToggle();
-        
-        // Find the collapse button (inside sidebar when open)
-        const collapseButton = sidebar.querySelector('button[kind="header"]');
-        if (collapseButton) {
-            // Ensure it's always visible
-            collapseButton.style.visibility = 'visible';
-            collapseButton.style.opacity = '1';
-            collapseButton.style.display = 'flex';
-            collapseButton.style.pointerEvents = 'auto';
-        }
-        
-        // Find the expand button (appears when sidebar is collapsed)
-        const expandControl = document.querySelector('[data-testid="collapsedControl"]');
-        if (expandControl) {
-            // Ensure container is visible
-            expandControl.style.visibility = 'visible';
-            expandControl.style.opacity = '1';
-            expandControl.style.display = 'block';
-            expandControl.style.position = 'fixed';
-            expandControl.style.left = '0';
-            expandControl.style.top = '50%';
-            expandControl.style.transform = 'translateY(-50%)';
-            expandControl.style.zIndex = '999999';
-            
-            // Find the button inside
-            const expandButton = expandControl.querySelector('button');
-            if (expandButton) {
-                expandButton.style.visibility = 'visible';
-                expandButton.style.opacity = '1';
-                expandButton.style.display = 'flex';
-                expandButton.style.pointerEvents = 'auto';
-            }
-        }
-        
-        // Alternative: look for the expand button directly
-        const allButtons = document.querySelectorAll('button[kind="header"]');
-        allButtons.forEach(btn => {
-            if (!sidebar.contains(btn)) {
-                // This is the expand button (outside sidebar)
-                btn.style.visibility = 'visible';
-                btn.style.opacity = '1';
-                btn.style.display = 'flex';
-                btn.style.pointerEvents = 'auto';
-                btn.style.position = 'fixed';
-                btn.style.left = '0';
-                btn.style.top = '50%';
-                btn.style.transform = 'translateY(-50%)';
-                btn.style.zIndex = '999999';
-            }
-        });
-    }
-    
-    // Run immediately
-    ensureSidebarButtonsVisible();
-    updateDesktopToggle();
-    
-    // Run on DOM changes (Streamlit redraws)
-    const observer = new MutationObserver(function(mutations) {
-        ensureSidebarButtonsVisible();
-    });
-    
-    // Observe the entire document for changes
-    observer.observe(document.body, {
-        childList: true,
-        subtree: true,
-        attributes: true,
-        attributeFilter: ['class', 'style', 'data-testid']
-    });
-    
-    // Run on window resize
-    window.addEventListener('resize', ensureSidebarButtonsVisible);
-    
-    // Run periodically as backup (every 500ms)
-    setInterval(ensureSidebarButtonsVisible, 500);
-    setInterval(updateDesktopToggle, 600);
-    
-    // Multiple retry attempts for Streamlit Cloud
-    setTimeout(ensureSidebarButtonsVisible, 100);
-    setTimeout(ensureSidebarButtonsVisible, 250);
-    setTimeout(ensureSidebarButtonsVisible, 500);
-    setTimeout(ensureSidebarButtonsVisible, 1000);
-    setTimeout(ensureSidebarButtonsVisible, 2000);
-    setTimeout(updateDesktopToggle, 100);
-    setTimeout(updateDesktopToggle, 250);
-    setTimeout(updateDesktopToggle, 500);
-    setTimeout(updateDesktopToggle, 1000);
-    setTimeout(updateDesktopToggle, 2000);
-    
-    console.log('VocalBrand: Desktop sidebar toggle fix initialized ✓');
-})();
 
-// ============================================================
-// SUPREME DESKTOP TOGGLE - NUCLEAR OPTION (replaces above if above fails)
-// ============================================================
-(function() {
-    'use strict';
-    
-    console.log('VocalBrand: SUPREME Desktop toggle starting...');
-    
+    const DESKTOP_MIN_WIDTH = 993;
+    const SIDEBAR_SELECTOR = '[data-testid="stSidebar"], section[data-testid="stSidebar"]';
+    const COLLAPSED_CONTROL_SELECTOR = '[data-testid="collapsedControl"], div[data-testid="collapsedControl"]';
+    // Support multiple Streamlit versions and themes
+    const COLLAPSE_BUTTON_SELECTOR = [
+        `${SIDEBAR_SELECTOR} button[kind="header"]`,
+        `${SIDEBAR_SELECTOR} [data-testid*="baseButton"] button`,
+        `${SIDEBAR_SELECTOR} button[aria-label*="collapse" i]`,
+        `${SIDEBAR_SELECTOR} [aria-label*="close sidebar" i]`,
+        `${SIDEBAR_SELECTOR} button[title*="collapse" i]`,
+    ].join(',');
+    const TOGGLE_BUTTON_ID = 'vb-desktop-toggle';
+    const DESKTOP_ONLY_PROPS = [
+        'position','top','left','transform','margin-left','width','min-width','max-width',
+        'height','z-index','display','visibility','opacity','transition'
+    ];
+
+    let boundButton = null;
+
+    console.log('VocalBrand SUPREME: Desktop toggle booting…');
+
     function isDesktop() {
-        return window.innerWidth >= 993;
+        return window.innerWidth >= DESKTOP_MIN_WIDTH;
     }
-    
+
     function getSidebar() {
-        return document.querySelector('[data-testid="stSidebar"]');
+        return document.querySelector(SIDEBAR_SELECTOR);
     }
-    
-    function isCollapsed() {
-        const sidebar = getSidebar();
-        if (!sidebar) return false;
-        
-        // Check collapsedControl presence
-        const collapsedControl = document.querySelector('[data-testid="collapsedControl"]');
-        if (collapsedControl && collapsedControl.offsetParent !== null) return true;
-        
-        // Check transform
-        const style = window.getComputedStyle(sidebar);
-        if (style.transform && style.transform.includes('matrix') && style.transform.includes('-')) return true;
-        
-        // Check position
-        const rect = sidebar.getBoundingClientRect();
-        return rect.x < -100 || rect.width < 40;
+
+    function getCollapsedControl() {
+        return document.querySelector(COLLAPSED_CONTROL_SELECTOR);
     }
-    
-    function updateButtonState() {
-        const btn = document.getElementById('vb-desktop-toggle');
-        if (!btn || !isDesktop()) return;
-        
-        const collapsed = isCollapsed();
-        btn.textContent = collapsed ? '»' : '«';
-        document.body.classList.toggle('vb-sidebar-collapsed', collapsed);
-        console.log('VocalBrand SUPREME: Button state -', collapsed ? 'COLLAPSED (»)' : 'OPEN («)');
-    }
-    
-    function forceSidebarState(shouldBeOpen) {
+
+    function setSidebarStyles(styles) {
         const sidebar = getSidebar();
         if (!sidebar) return;
-        
-        console.log('VocalBrand SUPREME: Forcing sidebar', shouldBeOpen ? 'OPEN' : 'CLOSED');
-        
-        if (shouldBeOpen) {
-            // FORCE OPEN
-            sidebar.style.cssText = `
-                position: sticky !important;
-                top: 0 !important;
-                left: 0 !important;
-                transform: translateX(0) !important;
-                margin-left: 0 !important;
-                width: 21rem !important;
-                min-width: 21rem !important;
-                max-width: 21rem !important;
-                height: 100vh !important;
-                z-index: 1 !important;
-                display: block !important;
-                visibility: visible !important;
-                opacity: 1 !important;
-                transition: transform 0.3s ease-in-out !important;
-            `;
-            
-            // Hide expand control
-            const expandControl = document.querySelector('[data-testid="collapsedControl"]');
-            if (expandControl) expandControl.style.display = 'none';
-            
-        } else {
-            // FORCE CLOSED
-            sidebar.style.cssText = `
-                position: fixed !important;
-                top: 0 !important;
-                left: 0 !important;
-                transform: translateX(-21rem) !important;
-                width: 21rem !important;
-                min-width: 21rem !important;
-                max-width: 21rem !important;
-                height: 100vh !important;
-                z-index: 9999 !important;
-                transition: transform 0.3s ease-in-out !important;
-            `;
-            
-            // Show expand control
-            const expandControl = document.querySelector('[data-testid="collapsedControl"]');
-            if (expandControl) {
-                expandControl.style.display = 'block';
-                expandControl.style.position = 'fixed';
-                expandControl.style.left = '0';
-                expandControl.style.top = '50%';
-                expandControl.style.transform = 'translateY(-50%)';
-                expandControl.style.zIndex = '999999';
-            }
+        // Apply to sidebar
+        Object.entries(styles).forEach(([prop, value]) => {
+            if (value === null) sidebar.style.removeProperty(prop);
+            else sidebar.style.setProperty(prop, value, 'important');
+        });
+        // Also apply to parent shell (Streamlit sometimes wraps in div section)
+        const shell = sidebar.parentElement;
+        if (shell && shell instanceof HTMLElement) {
+            Object.entries(styles).forEach(([prop, value]) => {
+                if (value === null) shell.style.removeProperty(prop);
+                else shell.style.setProperty(prop, value, 'important');
+            });
         }
     }
-    
-    function handleToggleClick(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        console.log('VocalBrand SUPREME: Toggle clicked!');
-        const currentlyCollapsed = isCollapsed();
-        console.log('VocalBrand SUPREME: Current state - collapsed:', currentlyCollapsed);
-        
-        // Try clicking Streamlit native buttons first
-        if (currentlyCollapsed) {
-            const expandBtn = document.querySelector('[data-testid="collapsedControl"] button');
-            if (expandBtn) {
-                console.log('VocalBrand SUPREME: Attempting native expand click');
-                try { expandBtn.click(); } catch(e) {}
+
+    function resetDesktopForMobile() {
+        const sidebar = getSidebar();
+        if (!sidebar) return;
+        DESKTOP_ONLY_PROPS.forEach(prop => sidebar.style.removeProperty(prop));
+    }
+
+    function detectCollapsed() {
+        const sidebar = getSidebar();
+        if (!sidebar) return false;
+
+        const collapsedControl = getCollapsedControl();
+        if (collapsedControl && collapsedControl.offsetParent !== null) return true;
+
+        const computed = window.getComputedStyle(sidebar);
+        if (computed.transform && computed.transform !== 'none') {
+            const matrix = computed.transform;
+            if (matrix.includes('-') && !matrix.includes('(1, 0, 0, 1, 0, 0)')) return true;
+        }
+
+        const rect = sidebar.getBoundingClientRect();
+        if (rect.x <= -100 || rect.right <= 20 || rect.width < 40) return true;
+
+        if (sidebar.style.transform && sidebar.style.transform.includes('translateX(-')) return true;
+
+        return document.body.classList.contains('vb-sidebar-collapsed');
+    }
+
+    function syncExpandControl(collapsed) {
+        const control = getCollapsedControl();
+        if (!control) return;
+
+        if (collapsed) {
+            control.style.setProperty('display', 'block', 'important');
+            control.style.setProperty('position', 'fixed', 'important');
+            control.style.setProperty('left', '0', 'important');
+            control.style.setProperty('top', '50%', 'important');
+            control.style.setProperty('transform', 'translateY(-50%)', 'important');
+            control.style.setProperty('z-index', '999999', 'important');
+            const btn = control.querySelector('button');
+            if (btn) {
+                btn.style.setProperty('display', 'flex', 'important');
+                btn.style.setProperty('visibility', 'visible', 'important');
+                btn.style.setProperty('opacity', '1', 'important');
+                btn.style.setProperty('pointer-events', 'auto', 'important');
             }
         } else {
-            const collapseBtn = document.querySelector('[data-testid="stSidebar"] button[kind="header"]');
-            if (collapseBtn) {
-                console.log('VocalBrand SUPREME: Attempting native collapse click');
-                try { collapseBtn.click(); } catch(e) {}
-            }
+            control.style.setProperty('display', 'none', 'important');
         }
-        
-        // FORCE the opposite state via CSS (nuclear option)
-        setTimeout(() => {
-            forceSidebarState(currentlyCollapsed); // If was collapsed, force open; if was open, force closed
-            updateButtonState();
-        }, 50);
-        
-        setTimeout(updateButtonState, 200);
-        setTimeout(updateButtonState, 400);
     }
-    
-    function init() {
+
+    function getSidebarWidth() {
+        const sb = getSidebar();
+        if (!sb) return 336; // default 21rem
+        const computed = window.getComputedStyle(sb);
+        const w = parseFloat(computed.width || '336');
+        return isNaN(w) ? 336 : Math.max(240, Math.min(480, w));
+    }
+
+    function forceSidebarState(shouldBeOpen) {
         if (!isDesktop()) return;
-        
-        const btn = document.getElementById('vb-desktop-toggle');
+
+        console.log('VocalBrand SUPREME: Forcing sidebar', shouldBeOpen ? 'OPEN' : 'CLOSED');
+    const w = getSidebarWidth();
+    // Sync CSS var used by CSS-only rules
+    try { document.documentElement.style.setProperty('--vb-sidebar-w', `${w}px`); } catch {}
+
+        if (shouldBeOpen) {
+            setSidebarStyles({
+                position: 'sticky',
+                top: '0',
+                left: '0',
+                transform: 'translateX(0)',
+                'margin-left': '0',
+                width: `${w}px`,
+                'min-width': `${w}px`,
+                'max-width': `${w}px`,
+                height: '100vh',
+                'z-index': '1',
+                display: 'block',
+                visibility: 'visible',
+                opacity: '1',
+                transition: 'transform 0.3s ease-in-out'
+            });
+        } else {
+            setSidebarStyles({
+                position: 'fixed',
+                top: '0',
+                left: '0',
+                transform: `translateX(-${w}px)`,
+                width: `${w}px`,
+                'min-width': `${w}px`,
+                'max-width': `${w}px`,
+                height: '100vh',
+                'z-index': '9999',
+                display: 'block',
+                visibility: 'visible',
+                opacity: '1',
+                transition: 'transform 0.3s ease-in-out'
+            });
+        }
+
+        syncExpandControl(!shouldBeOpen);
+        document.body.classList.toggle('vb-sidebar-collapsed', !shouldBeOpen);
+    }
+
+    function updateButtonState() {
+        const btn = document.getElementById(TOGGLE_BUTTON_ID);
         if (!btn) {
-            console.warn('VocalBrand SUPREME: Desktop toggle button not found!');
+            boundButton = null;
             return;
         }
-        
-        // Wire click handler (only once)
-        if (!btn.dataset.supremeBound) {
-            // Remove all existing listeners by cloning
-            const newBtn = btn.cloneNode(true);
-            btn.parentNode.replaceChild(newBtn, btn);
-            
-            // Add fresh listener
-            newBtn.addEventListener('click', handleToggleClick);
-            newBtn.dataset.supremeBound = '1';
-            console.log('VocalBrand SUPREME: Toggle wired!');
+
+        if (!isDesktop()) {
+            btn.style.setProperty('display', 'none', 'important');
+            document.body.classList.remove('vb-sidebar-collapsed');
+            resetDesktopForMobile();
+            return;
         }
-        
-        // Initial state
+
+        const collapsed = detectCollapsed();
+        const glyph = collapsed ? '\u00BB' : '\u00AB';
+        btn.textContent = glyph;
+        btn.setAttribute('aria-expanded', String(!collapsed));
+        btn.style.setProperty('display', 'flex', 'important');
+        document.body.classList.toggle('vb-sidebar-collapsed', collapsed);
+        syncExpandControl(collapsed);
+
+        if (collapsed) {
+            setSidebarStyles({ display: 'block', visibility: 'visible', opacity: '1' });
+        }
+    }
+
+    function rebindButton() {
+        const btn = document.getElementById(TOGGLE_BUTTON_ID);
+        if (!btn) {
+            boundButton = null;
+            return;
+        }
+
+        if (boundButton === btn) return;
+
+        if (boundButton) {
+            boundButton.removeEventListener('click', handleToggleClick, true);
+            boundButton.removeEventListener('click', handleToggleClick, false);
+        }
+
+        btn.addEventListener('click', handleToggleClick);
+        btn.dataset.vbSupremeBound = '1';
+        boundButton = btn;
+        console.log('VocalBrand SUPREME: Toggle wired to', btn);
+    }
+
+    function handleToggleClick(event) {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+
+        if (!isDesktop()) {
+            updateButtonState();
+            return;
+        }
+
+        const collapsedBefore = detectCollapsed();
+        console.log('VocalBrand SUPREME: Toggle clicked. collapsedBefore =', collapsedBefore);
+
+        if (collapsedBefore) {
+            const expandBtn = document.querySelector(`${COLLAPSED_CONTROL_SELECTOR} button, [aria-label*="expand sidebar" i], [title*="expand" i]`);
+            if (expandBtn) {
+                try { expandBtn.click(); } catch (err) { console.warn('VocalBrand SUPREME: Native expand failed', err); }
+            }
+        } else {
+            let collapseBtn = document.querySelector(COLLAPSE_BUTTON_SELECTOR);
+            if (!collapseBtn) {
+                collapseBtn = document.querySelector('[aria-label*="collapse" i], [title*="collapse" i]');
+            }
+            if (collapseBtn) {
+                try { collapseBtn.click(); } catch (err) { console.warn('VocalBrand SUPREME: Native collapse failed', err); }
+            }
+        }
+
+        const shouldBeOpen = collapsedBefore;
+        requestAnimationFrame(() => forceSidebarState(shouldBeOpen));
+        setTimeout(() => forceSidebarState(shouldBeOpen), 120);
+        setTimeout(updateButtonState, 40);
+        setTimeout(updateButtonState, 180);
+        setTimeout(updateButtonState, 400);
+    }
+
+    function heartbeat() {
+        rebindButton();
         updateButtonState();
     }
-    
-    // Initialize immediately and on retries
+
+    function init() {
+        heartbeat();
+        console.log('VocalBrand SUPREME: Desktop toggle initialized.');
+    }
+
     init();
-    setTimeout(init, 100);
-    setTimeout(init, 300);
-    setTimeout(init, 500);
-    setTimeout(init, 1000);
-    setTimeout(init, 2000);
-    
-    // Keep button state updated
-    setInterval(updateButtonState, 700);
-    
-    // Re-init on resize
+    setTimeout(heartbeat, 80);
+    setTimeout(heartbeat, 200);
+    setTimeout(heartbeat, 500);
+    setTimeout(heartbeat, 1000);
+    setTimeout(heartbeat, 2000);
+
     window.addEventListener('resize', () => {
-        setTimeout(init, 100);
+        setTimeout(heartbeat, 60);
     });
-    
-    // Observer for Streamlit redraws
+
     const observer = new MutationObserver(() => {
-        setTimeout(init, 50);
+        setTimeout(heartbeat, 50);
     });
-    observer.observe(document.body, {
-        childList: true,
-        subtree: true
-    });
-    
-    console.log('VocalBrand SUPREME: Desktop toggle initialized! ✓✓✓');
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    setInterval(heartbeat, 700);
 })();
 </script>
     """
