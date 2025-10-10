@@ -514,80 +514,181 @@ def inject_mobile_nav_helpers():
         return window.innerWidth <= MOBILE_BREAKPOINT;
     }
     
-    // Get DOM elements (with retry for Streamlit's dynamic rendering)
+    // Get ALL possible DOM elements (Streamlit Cloud vs Local differences)
     function getElements() {
         return {
             fab: document.getElementById('vb-fab-menu'),
-            hamburger: document.querySelector('[data-testid="stSidebarNavOpen"]'),
-            hamburgerBtn: document.querySelector('[data-testid="stSidebarNavOpen"] button'),
-            sidebar: document.querySelector('[data-testid="stSidebar"]')
+            // Try multiple selectors for hamburger
+            hamburger: document.querySelector('[data-testid="stSidebarNavOpen"]') || 
+                       document.querySelector('[data-testid="stSidebarNav"]') ||
+                       document.querySelector('button[kind="header"]') ||
+                       document.querySelector('.css-1544g2n') || // Streamlit Cloud class
+                       document.querySelector('[aria-label*="navigation"]'),
+            hamburgerBtn: document.querySelector('[data-testid="stSidebarNavOpen"] button') || 
+                         document.querySelector('[data-testid="stSidebarNav"] button') ||
+                         document.querySelector('button[kind="header"]'),
+            sidebar: document.querySelector('[data-testid="stSidebar"]') ||
+                    document.querySelector('section[data-testid="stSidebar"]') ||
+                    document.querySelector('.css-1cypcdb') || // Streamlit Cloud sidebar class
+                    document.querySelector('[role="complementary"]')
         };
     }
     
-    // Open sidebar by clicking native hamburger - ENHANCED VERSION
+    // ULTRA-ROBUST sidebar opening - works on ALL Streamlit versions
     function openSidebar(e) {
         if (e) {
             e.preventDefault();
             e.stopPropagation();
         }
         
+        console.log('VocalBrand: Attempting to open sidebar...');
         const els = getElements();
         
-        // Method 1: Click the button directly
+        // Method 1: Direct button click (Streamlit standard)
         if (els.hamburgerBtn) {
             try {
                 els.hamburgerBtn.click();
-                console.log('VocalBrand: Sidebar opened via button click');
+                console.log('VocalBrand: ✓ Sidebar opened via button.click()');
                 return true;
             } catch (err) {
-                console.warn('VocalBrand: Button click failed:', err);
+                console.warn('VocalBrand: Method 1 failed:', err);
             }
         }
         
-        // Method 2: Dispatch native events on button
+        // Method 2: Dispatch multiple event types on button
         if (els.hamburgerBtn) {
             try {
+                // Try click event
                 const clickEvent = new MouseEvent('click', {
                     bubbles: true,
                     cancelable: true,
                     view: window
                 });
                 els.hamburgerBtn.dispatchEvent(clickEvent);
-                console.log('VocalBrand: Sidebar opened via button event');
+                
+                // Also try pointerdown + pointerup (for touch simulation)
+                const pointerDown = new PointerEvent('pointerdown', {
+                    bubbles: true,
+                    cancelable: true,
+                    pointerId: 1,
+                    pointerType: 'mouse'
+                });
+                const pointerUp = new PointerEvent('pointerup', {
+                    bubbles: true,
+                    cancelable: true,
+                    pointerId: 1,
+                    pointerType: 'mouse'
+                });
+                els.hamburgerBtn.dispatchEvent(pointerDown);
+                els.hamburgerBtn.dispatchEvent(pointerUp);
+                
+                console.log('VocalBrand: ✓ Sidebar opened via dispatched events');
                 return true;
             } catch (err) {
-                console.warn('VocalBrand: Button event failed:', err);
+                console.warn('VocalBrand: Method 2 failed:', err);
             }
         }
         
-        // Method 3: Click the parent container
+        // Method 3: Click parent container
         if (els.hamburger) {
             try {
                 els.hamburger.click();
-                console.log('VocalBrand: Sidebar opened via parent click');
+                console.log('VocalBrand: ✓ Sidebar opened via parent.click()');
                 return true;
             } catch (err) {
-                console.warn('VocalBrand: Parent click failed:', err);
+                console.warn('VocalBrand: Method 3 failed:', err);
             }
         }
         
-        // Method 4: Directly toggle sidebar visibility (last resort)
-        if (els.sidebar) {
-            try {
-                const currentDisplay = window.getComputedStyle(els.sidebar).display;
-                if (currentDisplay === 'none' || els.sidebar.style.transform === 'translateX(-100%)') {
-                    els.sidebar.style.display = 'block';
-                    els.sidebar.style.transform = 'translateX(0)';
-                    els.sidebar.style.visibility = 'visible';
-                    console.log('VocalBrand: Sidebar opened via direct style manipulation');
+        // Method 4: Search for ANY button that might open sidebar
+        try {
+            const allButtons = document.querySelectorAll('button');
+            for (let btn of allButtons) {
+                const ariaLabel = btn.getAttribute('aria-label') || '';
+                const title = btn.getAttribute('title') || '';
+                const classNames = btn.className || '';
+                
+                // Look for navigation-related buttons
+                if (ariaLabel.includes('navigation') || 
+                    ariaLabel.includes('menu') || 
+                    ariaLabel.includes('sidebar') ||
+                    title.includes('navigation') ||
+                    title.includes('menu') ||
+                    classNames.includes('sidebar')) {
+                    btn.click();
+                    console.log('VocalBrand: ✓ Sidebar opened via button search');
                     return true;
                 }
+            }
+        } catch (err) {
+            console.warn('VocalBrand: Method 4 failed:', err);
+        }
+        
+        // Method 5: Directly manipulate sidebar CSS (Streamlit Cloud compatible)
+        if (els.sidebar) {
+            try {
+                // Remove any negative transforms
+                els.sidebar.style.transform = 'translateX(0)';
+                els.sidebar.style.marginLeft = '0';
+                els.sidebar.style.left = '0';
+                els.sidebar.style.display = 'block';
+                els.sidebar.style.visibility = 'visible';
+                els.sidebar.style.opacity = '1';
+                els.sidebar.style.zIndex = '999999';
+                
+                // Also try setting attribute
+                els.sidebar.setAttribute('data-sidebar-open', 'true');
+                
+                console.log('VocalBrand: ✓ Sidebar opened via CSS manipulation');
+                return true;
             } catch (err) {
-                console.warn('VocalBrand: Direct manipulation failed:', err);
+                console.warn('VocalBrand: Method 5 failed:', err);
             }
         }
         
-        console.error('VocalBrand: All sidebar opening methods failed');
+        // Method 6: Trigger Streamlit's internal state (nuclear option)
+        try {
+            // Streamlit uses React under the hood - try to trigger state change
+            if (window.streamlitDebug) {
+                window.streamlitDebug.toggleSidebar();
+                console.log('VocalBrand: ✓ Sidebar opened via Streamlit debug');
+                return true;
+            }
+        } catch (err) {
+            console.warn('VocalBrand: Method 6 failed:', err);
+        }
+        
+        // Method 7: Create overlay that forces sidebar visible
+        try {
+            const sidebar = els.sidebar;
+            if (sidebar) {
+                // Force show with !important equivalent
+                sidebar.style.cssText = `
+                    transform: translateX(0) !important;
+                    margin-left: 0 !important;
+                    left: 0 !important;
+                    display: block !important;
+                    visibility: visible !important;
+                    opacity: 1 !important;
+                    z-index: 999999 !important;
+                    position: fixed !important;
+                    top: 0 !important;
+                    height: 100vh !important;
+                `;
+                console.log('VocalBrand: ✓ Sidebar force-opened via cssText');
+                return true;
+            }
+        } catch (err) {
+            console.warn('VocalBrand: Method 7 failed:', err);
+        }
+        
+        console.error('VocalBrand: ⚠️ All 7 methods failed - sidebar might already be open or Streamlit version incompatible');
+        console.log('VocalBrand: Debug info:', {
+            hamburger: !!els.hamburger,
+            hamburgerBtn: !!els.hamburgerBtn,
+            sidebar: !!els.sidebar,
+            isMobile: isMobileView()
+        });
         return false;
     }
     
@@ -638,34 +739,63 @@ def inject_mobile_nav_helpers():
     function init() {
         const els = getElements();
         
-        // Attach FAB click handler with multiple event types
+        // Attach FAB click handler with ALL possible event types
         if (els.fab) {
+            console.log('VocalBrand: Attaching FAB event listeners...');
+            
             // Remove any existing listeners to prevent duplicates
             const newFab = els.fab.cloneNode(true);
             els.fab.parentNode.replaceChild(newFab, els.fab);
             
-            // Click event
+            // 1. Click event (standard)
             newFab.addEventListener('click', function(e) {
-                console.log('VocalBrand: FAB clicked');
-                openSidebar(e);
-            });
-            
-            // Touch events for better mobile support
-            newFab.addEventListener('touchstart', function(e) {
-                console.log('VocalBrand: FAB touched');
                 e.preventDefault();
+                e.stopPropagation();
+                console.log('VocalBrand: FAB clicked (click event)');
+                openSidebar(e);
+            }, false);
+            
+            // 2. Touch events (iOS/Android)
+            newFab.addEventListener('touchstart', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('VocalBrand: FAB touched (touchstart)');
                 openSidebar(e);
             }, { passive: false });
             
-            // Pointer events (modern alternative)
+            newFab.addEventListener('touchend', function(e) {
+                e.preventDefault();
+                console.log('VocalBrand: FAB touch ended');
+            }, { passive: false });
+            
+            // 3. Pointer events (universal modern approach)
             newFab.addEventListener('pointerdown', function(e) {
-                if (e.pointerType === 'touch' || e.pointerType === 'pen') {
-                    console.log('VocalBrand: FAB pointer down');
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('VocalBrand: FAB pointer down (' + e.pointerType + ')');
+                openSidebar(e);
+            }, false);
+            
+            // 4. Mouse events (desktop fallback)
+            newFab.addEventListener('mousedown', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('VocalBrand: FAB mouse down');
+                openSidebar(e);
+            }, false);
+            
+            // 5. Keyboard accessibility (Enter/Space)
+            newFab.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    console.log('VocalBrand: FAB activated via keyboard');
                     openSidebar(e);
                 }
-            });
+            }, false);
             
-            console.log('VocalBrand: FAB event listeners attached');
+            console.log('VocalBrand: ✓ FAB initialized with 5 event types');
+        } else {
+            console.warn('VocalBrand: FAB button not found!');
         }
         
         // Initial setup
@@ -698,17 +828,25 @@ def inject_mobile_nav_helpers():
         init();
     }
     
-    // Re-initialize on Streamlit reruns (multiple attempts for reliability)
+    // AGGRESSIVE re-initialization for Streamlit Cloud (multiple attempts)
+    setTimeout(init, 50);   // Very fast first retry
     setTimeout(init, 100);
+    setTimeout(init, 250);
     setTimeout(init, 500);
     setTimeout(init, 1000);
-    setTimeout(init, 2000); // Extra attempt for slower connections
+    setTimeout(init, 1500);
+    setTimeout(init, 2000);
+    setTimeout(init, 3000); // Extra attempts for Streamlit Cloud
+    setTimeout(init, 5000); // Final attempt
+    
+    console.log('VocalBrand: Scheduled 9 initialization attempts');
     
     // Add a visual indicator that FAB is ready (pulse animation)
     setTimeout(function() {
         const fab = document.getElementById('vb-fab-menu');
         if (fab && isMobileView()) {
             fab.classList.add('pulse');
+            console.log('VocalBrand: FAB pulse animation added');
             // Remove pulse after 5 seconds
             setTimeout(function() {
                 fab.classList.remove('pulse');
