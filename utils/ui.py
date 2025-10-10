@@ -380,7 +380,7 @@ section[data-testid="stSidebar"] {
         position: fixed; 
         right: 1rem; 
         bottom: 1rem; 
-        z-index: 9997; 
+        z-index: 9999; 
         width: 56px; 
         height: 56px; 
         border: none; 
@@ -431,6 +431,11 @@ section[data-testid="stSidebar"] {
     .vb-fab-menu.pulse {
         animation: fabPulse 2s ease-in-out infinite;
     }
+}
+
+/* Ensure main app content and header do not overlay the forced-open sidebar */
+[data-testid="stAppViewContainer"], [data-testid="stHeader"], [data-testid="stToolbar"] {
+    z-index: auto !important;
 }
 
 /* Pulse animation for important CTAs */
@@ -518,7 +523,8 @@ def inject_mobile_nav_helpers():
         display: block !important;
         visibility: visible !important;
         opacity: 1 !important;
-        z-index: 999999 !important;
+        /* Put the sidebar absolutely on top of everything */
+        z-index: 2147483647 !important; /* max int for safety */
         position: fixed !important;
         top: 0 !important;
         height: 100vh !important;
@@ -529,13 +535,26 @@ def inject_mobile_nav_helpers():
     .main:has(#vb-nav-toggle:checked) .vb-nav-overlay,
     [data-testid="stAppViewContainer"]:has(#vb-nav-toggle:checked) .vb-nav-overlay {
         pointer-events: auto !important;
-        opacity: .5 !important;
+        opacity: .6 !important;
+        z-index: 2147483646 !important; /* just below sidebar */
     }
 
     /* Overlay default (off) */
     .vb-nav-overlay {
-        position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; z-index: 999998;
+        position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none;
+        z-index: 9998;
         transition: opacity .2s ease;
+        backdrop-filter: blur(2px);
+    }
+
+    /* Prevent background scroll when menu is open */
+    body:has(#vb-nav-toggle:checked) {
+        overflow: hidden !important;
+    }
+
+    /* Hide FAB while menu is open to avoid overlap */
+    body:has(#vb-nav-toggle:checked) #vb-fab-menu {
+        display: none !important;
     }
 }
 </style>
