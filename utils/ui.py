@@ -197,27 +197,54 @@ SUPREME_CSS = """
 }
 
 /* ===============================================
-   DESKTOP SIDEBAR COLLAPSE BUTTON FIX
+   DESKTOP SIDEBAR COLLAPSE BUTTON FIX - ULTRA ROBUST
    =============================================== */
 @media (min-width: 993px) {
-    /* Ensure sidebar collapse button is always visible */
-    button[kind="header"] {
+    /* Target Streamlit's native collapse button in sidebar header */
+    [data-testid="stSidebar"] button[kind="header"],
+    section[data-testid="stSidebar"] > div > button[kind="header"] {
         visibility: visible !important;
         opacity: 1 !important;
         display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        position: relative !important;
+        width: 40px !important;
+        height: 40px !important;
+        background: var(--primary-blue) !important;
+        border-radius: 8px !important;
+        color: white !important;
+        transition: all 0.3s ease !important;
+        margin: 0.5rem !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+        z-index: 1000 !important;
     }
     
-    /* Style the collapse button when sidebar is open (<<) */
-    [data-testid="stSidebar"][aria-expanded="true"] button[kind="header"]::after {
+    /* Hide default SVG icon and add custom text */
+    [data-testid="stSidebar"] button[kind="header"] svg {
+        display: none !important;
+    }
+    
+    /* Show "<<" when sidebar is open */
+    [data-testid="stSidebar"] button[kind="header"]::before {
         content: "«" !important;
         font-size: 24px !important;
         font-weight: bold !important;
-        color: var(--primary-blue) !important;
+        color: white !important;
+        line-height: 1 !important;
+        position: absolute !important;
     }
     
-    /* Make the expand button visible when sidebar is collapsed (>>) */
-    [data-testid="stSidebar"][aria-expanded="false"] ~ * button[kind="header"],
-    [data-testid="collapsedControl"] button {
+    /* Hover effect for collapse button */
+    [data-testid="stSidebar"] button[kind="header"]:hover {
+        background: var(--accent-gold) !important;
+        transform: scale(1.05) !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2) !important;
+    }
+    
+    /* Style for expand button when sidebar is collapsed */
+    [data-testid="collapsedControl"],
+    div[data-testid="collapsedControl"] {
         position: fixed !important;
         left: 0 !important;
         top: 50% !important;
@@ -225,41 +252,55 @@ SUPREME_CSS = """
         z-index: 999999 !important;
         visibility: visible !important;
         opacity: 1 !important;
-        display: flex !important;
-        background: var(--primary-blue) !important;
-        color: white !important;
-        border-radius: 0 8px 8px 0 !important;
-        padding: 12px 8px !important;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
-        transition: all 0.3s ease !important;
+        display: block !important;
+        width: auto !important;
+        height: auto !important;
     }
     
-    /* Style the expand button (>>) */
-    [data-testid="collapsedControl"] button::after,
-    [data-testid="stSidebar"][aria-expanded="false"] ~ * button[kind="header"]::after {
+    /* The expand button itself */
+    [data-testid="collapsedControl"] button,
+    div[data-testid="collapsedControl"] > button {
+        visibility: visible !important;
+        opacity: 1 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        position: relative !important;
+        width: 40px !important;
+        height: 60px !important;
+        background: var(--primary-blue) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 0 8px 8px 0 !important;
+        padding: 0 !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+        transition: all 0.3s ease !important;
+        cursor: pointer !important;
+    }
+    
+    /* Hide default SVG in expand button */
+    [data-testid="collapsedControl"] button svg,
+    div[data-testid="collapsedControl"] > button svg {
+        display: none !important;
+    }
+    
+    /* Show ">>" for expand button */
+    [data-testid="collapsedControl"] button::before,
+    div[data-testid="collapsedControl"] > button::before {
         content: "»" !important;
         font-size: 24px !important;
         font-weight: bold !important;
         color: white !important;
+        line-height: 1 !important;
+        position: absolute !important;
     }
     
-    /* Hover effect for collapse/expand button */
-    button[kind="header"]:hover,
-    [data-testid="collapsedControl"] button:hover {
+    /* Hover effect for expand button */
+    [data-testid="collapsedControl"] button:hover,
+    div[data-testid="collapsedControl"] > button:hover {
         background: var(--accent-gold) !important;
-        transform: translateY(-50%) scale(1.05) !important;
+        transform: scale(1.05) !important;
         box-shadow: 0 6px 16px rgba(0,0,0,0.2) !important;
-    }
-    
-    /* Ensure the button container is always visible */
-    [data-testid="collapsedControl"] {
-        visibility: visible !important;
-        opacity: 1 !important;
-        display: block !important;
-        position: fixed !important;
-        left: 0 !important;
-        top: 50% !important;
-        z-index: 999999 !important;
     }
 }
 
@@ -1125,6 +1166,112 @@ def inject_mobile_nav_helpers():
             }, 5000);
         }
     }, 1500);
+})();
+
+// ============================================================
+// DESKTOP SIDEBAR TOGGLE FIX - ENSURE BUTTONS ALWAYS VISIBLE
+// ============================================================
+(function() {
+    'use strict';
+    
+    console.log('VocalBrand: Initializing desktop sidebar toggle fix...');
+    
+    function isDesktopView() {
+        return window.innerWidth >= 993;
+    }
+    
+    function ensureSidebarButtonsVisible() {
+        if (!isDesktopView()) {
+            return; // Only run on desktop
+        }
+        
+        // Find the sidebar
+        const sidebar = document.querySelector('[data-testid="stSidebar"]');
+        if (!sidebar) {
+            return;
+        }
+        
+        // Find the collapse button (inside sidebar when open)
+        const collapseButton = sidebar.querySelector('button[kind="header"]');
+        if (collapseButton) {
+            // Ensure it's always visible
+            collapseButton.style.visibility = 'visible';
+            collapseButton.style.opacity = '1';
+            collapseButton.style.display = 'flex';
+            collapseButton.style.pointerEvents = 'auto';
+        }
+        
+        // Find the expand button (appears when sidebar is collapsed)
+        const expandControl = document.querySelector('[data-testid="collapsedControl"]');
+        if (expandControl) {
+            // Ensure container is visible
+            expandControl.style.visibility = 'visible';
+            expandControl.style.opacity = '1';
+            expandControl.style.display = 'block';
+            expandControl.style.position = 'fixed';
+            expandControl.style.left = '0';
+            expandControl.style.top = '50%';
+            expandControl.style.transform = 'translateY(-50%)';
+            expandControl.style.zIndex = '999999';
+            
+            // Find the button inside
+            const expandButton = expandControl.querySelector('button');
+            if (expandButton) {
+                expandButton.style.visibility = 'visible';
+                expandButton.style.opacity = '1';
+                expandButton.style.display = 'flex';
+                expandButton.style.pointerEvents = 'auto';
+            }
+        }
+        
+        // Alternative: look for the expand button directly
+        const allButtons = document.querySelectorAll('button[kind="header"]');
+        allButtons.forEach(btn => {
+            if (!sidebar.contains(btn)) {
+                // This is the expand button (outside sidebar)
+                btn.style.visibility = 'visible';
+                btn.style.opacity = '1';
+                btn.style.display = 'flex';
+                btn.style.pointerEvents = 'auto';
+                btn.style.position = 'fixed';
+                btn.style.left = '0';
+                btn.style.top = '50%';
+                btn.style.transform = 'translateY(-50%)';
+                btn.style.zIndex = '999999';
+            }
+        });
+    }
+    
+    // Run immediately
+    ensureSidebarButtonsVisible();
+    
+    // Run on DOM changes (Streamlit redraws)
+    const observer = new MutationObserver(function(mutations) {
+        ensureSidebarButtonsVisible();
+    });
+    
+    // Observe the entire document for changes
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['class', 'style', 'data-testid']
+    });
+    
+    // Run on window resize
+    window.addEventListener('resize', ensureSidebarButtonsVisible);
+    
+    // Run periodically as backup (every 500ms)
+    setInterval(ensureSidebarButtonsVisible, 500);
+    
+    // Multiple retry attempts for Streamlit Cloud
+    setTimeout(ensureSidebarButtonsVisible, 100);
+    setTimeout(ensureSidebarButtonsVisible, 250);
+    setTimeout(ensureSidebarButtonsVisible, 500);
+    setTimeout(ensureSidebarButtonsVisible, 1000);
+    setTimeout(ensureSidebarButtonsVisible, 2000);
+    
+    console.log('VocalBrand: Desktop sidebar toggle fix initialized ✓');
 })();
 </script>
     """
