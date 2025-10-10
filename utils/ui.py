@@ -600,6 +600,12 @@ def inject_mobile_nav_helpers():
         
         console.log('VocalBrand: Attempting to open sidebar...');
         const els = getElements();
+        const toggle = document.getElementById('vb-nav-toggle');
+
+        // Ensure CSS-only fallback activates by forcing the toggle checked state
+        if (toggle && !toggle.checked) {
+            toggle.checked = true;
+        }
         
         // Method 1: Direct button click (Streamlit standard)
         if (els.hamburgerBtn) {
