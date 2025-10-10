@@ -583,6 +583,45 @@ section[data-testid="stSidebar"] {
 .pulse-cta {
     animation: pulse 2s ease-in-out infinite;
 }
+
+/* ===============================
+   Desktop persistent toggle button
+   =============================== */
+@media (min-width: 993px) {
+    #vb-desktop-toggle.vb-desktop-toggle {
+        position: fixed;
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 1000000;
+        width: 44px;
+        height: 64px;
+        border: none;
+        border-radius: 0 10px 10px 0;
+        background: var(--primary-blue);
+        color: #fff;
+        font-size: 26px;
+        font-weight: 700;
+        line-height: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 6px 16px rgba(0,0,0,.2);
+        cursor: pointer;
+        transition: transform .2s ease, background .2s ease, box-shadow .2s ease;
+    }
+    #vb-desktop-toggle.vb-desktop-toggle:hover {
+        background: var(--accent-gold);
+        box-shadow: 0 10px 24px rgba(0,0,0,.25);
+        transform: translateY(-50%) scale(1.05);
+    }
+    /* Fallback symbols if JS hasn’t updated text yet */
+    #vb-desktop-toggle.vb-desktop-toggle::before { content: "«"; }
+    body.vb-sidebar-collapsed #vb-desktop-toggle.vb-desktop-toggle::before { content: "»"; }
+}
+@media (max-width: 992px) {
+    #vb-desktop-toggle.vb-desktop-toggle { display: none !important; }
+}
 </style>
 """
 
@@ -645,6 +684,9 @@ def inject_mobile_nav_helpers():
 <input type="checkbox" id="vb-nav-toggle" class="vb-nav-toggle" aria-hidden="true" style="display:none" />
 <label for="vb-nav-toggle" class="vb-fab-menu" id="vb-fab-menu" aria-label="Open navigation menu" title="Menu" tabindex="0"></label>
 <label for="vb-nav-toggle" class="vb-nav-overlay" id="vb-nav-overlay" aria-hidden="true"></label>
+
+<!-- Desktop-only persistent toggle (shows « when open, » when collapsed) -->
+<button id="vb-desktop-toggle" class="vb-desktop-toggle" aria-label="Toggle sidebar" title="Toggle sidebar" type="button"></button>
 
 <style>
 /* CSS-only open state using :has() targeting Streamlit shells */
@@ -1180,6 +1222,65 @@ def inject_mobile_nav_helpers():
         return window.innerWidth >= 993;
     }
     
+    // Helper: determine if sidebar appears collapsed based on presence of collapsed control
+    function isCollapsed() {
+        // Heuristic: if collapsedControl exists OR sidebar width is ~0, assume collapsed
+        const collapsedControl = document.querySelector('[data-testid="collapsedControl"]');
+        if (collapsedControl && collapsedControl.offsetParent !== null) return true;
+        const sidebar = document.querySelector('[data-testid="stSidebar"]');
+        if (!sidebar) return false;
+        const rect = sidebar.getBoundingClientRect();
+        return rect.width < 40; // effectively hidden
+    }
+    
+    // Actively update our persistent desktop button state and click handler
+    function updateDesktopToggle() {
+        const btn = document.getElementById('vb-desktop-toggle');
+        if (!btn) return;
+        if (!isDesktopView()) {
+            btn.style.display = 'none';
+            return;
+        }
+        btn.style.display = 'flex';
+        const collapsed = isCollapsed();
+        // Prefer pseudo-element content; keep text as ARIA backup
+        btn.textContent = collapsed ? '»' : '«';
+        document.body.classList.toggle('vb-sidebar-collapsed', collapsed);
+    }
+    
+    // Core toggle operation: when user clicks our persistent button
+    function handleDesktopToggleClick() {
+        // Try to click Streamlit native buttons first
+        const collapsed = isCollapsed();
+        const collapsedControl = document.querySelector('[data-testid="collapsedControl"] button');
+        const collapseButton = document.querySelector('[data-testid="stSidebar"] button[kind="header"]');
+        try {
+            if (collapsed) {
+                if (collapsedControl) { collapsedControl.click(); }
+            } else {
+                if (collapseButton) { collapseButton.click(); }
+            }
+        } catch (e) {}
+        // Fallback: manipulate CSS if buttons are missing or click didn’t take effect
+        const sidebar = document.querySelector('[data-testid="stSidebar"]');
+        if (sidebar) {
+            if (collapsed) {
+                // Expand
+                sidebar.style.transform = 'translateX(0)';
+                sidebar.style.left = '0';
+                sidebar.style.position = 'sticky';
+                sidebar.style.zIndex = '1';
+            } else {
+                // Collapse
+                sidebar.style.transform = 'translateX(-100%)';
+                sidebar.style.position = 'fixed';
+                sidebar.style.left = '0';
+                sidebar.style.zIndex = '9999';
+            }
+        }
+        setTimeout(updateDesktopToggle, 50);
+    }
+    
     function ensureSidebarButtonsVisible() {
         if (!isDesktopView()) {
             return; // Only run on desktop
@@ -1190,6 +1291,14 @@ def inject_mobile_nav_helpers():
         if (!sidebar) {
             return;
         }
+        
+        // Ensure our persistent desktop toggle exists and is wired
+        const vbBtn = document.getElementById('vb-desktop-toggle');
+        if (vbBtn && !vbBtn.dataset.bound) {
+            vbBtn.addEventListener('click', handleDesktopToggleClick);
+            vbBtn.dataset.bound = '1';
+        }
+    updateDesktopToggle();
         
         // Find the collapse button (inside sidebar when open)
         const collapseButton = sidebar.querySelector('button[kind="header"]');
@@ -1244,6 +1353,7 @@ def inject_mobile_nav_helpers():
     
     // Run immediately
     ensureSidebarButtonsVisible();
+    updateDesktopToggle();
     
     // Run on DOM changes (Streamlit redraws)
     const observer = new MutationObserver(function(mutations) {
@@ -1263,6 +1373,7 @@ def inject_mobile_nav_helpers():
     
     // Run periodically as backup (every 500ms)
     setInterval(ensureSidebarButtonsVisible, 500);
+    setInterval(updateDesktopToggle, 600);
     
     // Multiple retry attempts for Streamlit Cloud
     setTimeout(ensureSidebarButtonsVisible, 100);
@@ -1270,6 +1381,11 @@ def inject_mobile_nav_helpers():
     setTimeout(ensureSidebarButtonsVisible, 500);
     setTimeout(ensureSidebarButtonsVisible, 1000);
     setTimeout(ensureSidebarButtonsVisible, 2000);
+    setTimeout(updateDesktopToggle, 100);
+    setTimeout(updateDesktopToggle, 250);
+    setTimeout(updateDesktopToggle, 500);
+    setTimeout(updateDesktopToggle, 1000);
+    setTimeout(updateDesktopToggle, 2000);
     
     console.log('VocalBrand: Desktop sidebar toggle fix initialized ✓');
 })();
