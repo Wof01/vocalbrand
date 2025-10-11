@@ -609,20 +609,22 @@ section[data-testid="stSidebar"] {
         box-shadow: 0 6px 16px rgba(0,0,0,.2);
         cursor: pointer;
         transition: transform .2s ease, background .2s ease, box-shadow .2s ease;
+        pointer-events: auto !important; /* ensure clicks always reach the button */
     }
     #vb-desktop-toggle.vb-desktop-toggle:hover {
         background: var(--accent-gold);
         box-shadow: 0 10px 24px rgba(0,0,0,.25);
         transform: translateY(-50%) scale(1.05);
     }
-    /* Fallback symbols if JS hasn’t updated text yet */
+    /* Symbols controlled by checkbox state to avoid duplicates */
     #vb-desktop-toggle.vb-desktop-toggle::before { content: "«"; }
-    body.vb-sidebar-collapsed #vb-desktop-toggle.vb-desktop-toggle::before { content: "»"; }
+    :root:has(#vb-desktop-chk:checked) #vb-desktop-toggle.vb-desktop-toggle::before { content: "»"; }
 
     /* Ultra-supreme: drive desktop sidebar purely via a CSS class + var */
     :root { --vb-sidebar-w: 21rem; }
-    body:not(.vb-sidebar-collapsed) [data-testid="stSidebar"],
-    body:not(.vb-sidebar-collapsed) section[data-testid="stSidebar"] {
+    /* Sidebar OPEN when checkbox is unchecked */
+    :root:not(:has(#vb-desktop-chk:checked)) [data-testid="stSidebar"],
+    :root:not(:has(#vb-desktop-chk:checked)) section[data-testid="stSidebar"] {
         position: sticky !important;
         top: 0 !important;
         left: 0 !important;
@@ -633,8 +635,9 @@ section[data-testid="stSidebar"] {
         height: 100vh !important;
         z-index: 1 !important;
     }
-    body.vb-sidebar-collapsed [data-testid="stSidebar"],
-    body.vb-sidebar-collapsed section[data-testid="stSidebar"] {
+    /* Sidebar CLOSED when checkbox is checked */
+    :root:has(#vb-desktop-chk:checked) [data-testid="stSidebar"],
+    :root:has(#vb-desktop-chk:checked) section[data-testid="stSidebar"] {
         position: fixed !important;
         top: 0 !important;
         left: 0 !important;
@@ -704,16 +707,15 @@ def inject_mobile_nav_helpers():
     3. Persistent monitoring to prevent CSS hiding issues
     4. Touch-optimized for best mobile UX
     """
-    from streamlit import markdown
-
     html = """
 <!-- CSS-only mobile nav toggle: hidden checkbox controls sidebar and overlay -->
 <input type="checkbox" id="vb-nav-toggle" class="vb-nav-toggle" aria-hidden="true" style="display:none" />
 <label for="vb-nav-toggle" class="vb-fab-menu" id="vb-fab-menu" aria-label="Open navigation menu" title="Menu" tabindex="0"></label>
 <label for="vb-nav-toggle" class="vb-nav-overlay" id="vb-nav-overlay" aria-hidden="true"></label>
 
-<!-- Desktop-only persistent toggle (shows « when open, » when collapsed) -->
-<button id="vb-desktop-toggle" class="vb-desktop-toggle" aria-label="Toggle sidebar" title="Toggle sidebar" type="button"></button>
+<!-- Desktop-only persistent toggle (CSS-only using a hidden checkbox) -->
+<input type="checkbox" id="vb-desktop-chk" class="vb-desktop-chk" aria-hidden="true" style="display:none" />
+<label id="vb-desktop-toggle" class="vb-desktop-toggle" aria-label="Toggle sidebar" title="Toggle sidebar" for="vb-desktop-chk"></label>
 
 <style>
 /* CSS-only open state using :has() targeting Streamlit shells */
@@ -1243,8 +1245,28 @@ def inject_mobile_nav_helpers():
 (function() {
     'use strict';
 
+    // Sync legacy body class with new desktop checkbox so both CSS paths work
+    try {
+        const chk = document.getElementById('vb-desktop-chk');
+        if (chk) {
+            const sync = () => {
+                document.body.classList.toggle('vb-sidebar-collapsed', chk.checked);
+            };
+            chk.addEventListener('change', sync);
+            sync();
+        }
+    } catch {}
+
     const DESKTOP_MIN_WIDTH = 993;
     const SIDEBAR_SELECTOR = '[data-testid="stSidebar"], section[data-testid="stSidebar"]';
+    const SIDEBAR_CANDIDATE_SELECTORS = [
+        '[data-testid="stSidebar"]',
+        'section[data-testid="stSidebar"]',
+        'div[data-testid="stSidebar"]',
+        '.stSidebar',
+        '[class*="sidebar" i]',
+        '[role="complementary"]'
+    ];
     const COLLAPSED_CONTROL_SELECTOR = '[data-testid="collapsedControl"], div[data-testid="collapsedControl"]';
     // Support multiple Streamlit versions and themes
     const COLLAPSE_BUTTON_SELECTOR = [
@@ -1259,6 +1281,7 @@ def inject_mobile_nav_helpers():
         'position','top','left','transform','margin-left','width','min-width','max-width',
         'height','z-index','display','visibility','opacity','transition'
     ];
+    const INLINE_PROPS = DESKTOP_ONLY_PROPS;
 
     let boundButton = null;
 
@@ -1276,22 +1299,43 @@ def inject_mobile_nav_helpers():
         return document.querySelector(COLLAPSED_CONTROL_SELECTOR);
     }
 
-    function setSidebarStyles(styles) {
-        const sidebar = getSidebar();
-        if (!sidebar) return;
-        // Apply to sidebar
-        Object.entries(styles).forEach(([prop, value]) => {
-            if (value === null) sidebar.style.removeProperty(prop);
-            else sidebar.style.setProperty(prop, value, 'important');
+    function getSidebarCandidates() {
+        const set = new Set();
+        SIDEBAR_CANDIDATE_SELECTORS.forEach(sel => {
+            document.querySelectorAll(sel).forEach(el => set.add(el));
         });
-        // Also apply to parent shell (Streamlit sometimes wraps in div section)
-        const shell = sidebar.parentElement;
-        if (shell && shell instanceof HTMLElement) {
+        return Array.from(set).filter(Boolean);
+    }
+
+    function setSidebarStyles(styles) {
+        const candidates = getSidebarCandidates();
+        if (!candidates.length) return;
+        candidates.forEach(sidebar => {
             Object.entries(styles).forEach(([prop, value]) => {
-                if (value === null) shell.style.removeProperty(prop);
-                else shell.style.setProperty(prop, value, 'important');
+                if (value === null) sidebar.style.removeProperty(prop);
+                else sidebar.style.setProperty(prop, value, 'important');
             });
-        }
+            const shell = sidebar.parentElement;
+            if (shell && shell instanceof HTMLElement) {
+                Object.entries(styles).forEach(([prop, value]) => {
+                    if (value === null) shell.style.removeProperty(prop);
+                    else shell.style.setProperty(prop, value, 'important');
+                });
+            }
+        });
+    }
+
+    function clearSidebarInlineStyles() {
+        const candidates = getSidebarCandidates();
+        candidates.forEach(sidebar => {
+            INLINE_PROPS.forEach(p => {
+                try { sidebar.style.removeProperty(p); } catch {}
+            });
+            const shell = sidebar.parentElement;
+            if (shell && shell instanceof HTMLElement) {
+                INLINE_PROPS.forEach(p => { try { shell.style.removeProperty(p); } catch {} });
+            }
+        });
     }
 
     function resetDesktopForMobile() {
@@ -1382,6 +1426,7 @@ def inject_mobile_nav_helpers():
                 position: 'fixed',
                 top: '0',
                 left: '0',
+                // Use both pixel-based and percentage-based transforms as belt-and-suspenders
                 transform: `translateX(-${w}px)`,
                 width: `${w}px`,
                 'min-width': `${w}px`,
@@ -1392,6 +1437,15 @@ def inject_mobile_nav_helpers():
                 visibility: 'visible',
                 opacity: '1',
                 transition: 'transform 0.3s ease-in-out'
+            });
+            // Also set style attribute using percentage on all candidates
+            getSidebarCandidates().forEach(el => {
+                try {
+                    el.style.setProperty('transform', 'translateX(-100%)', 'important');
+                    el.style.setProperty('pointer-events', 'none', 'important');
+                    el.style.setProperty('visibility', 'hidden', 'important');
+                    el.style.setProperty('opacity', '0.9999', 'important'); // keep layout stable but hidden
+                } catch {}
             });
         }
 
@@ -1408,17 +1462,17 @@ def inject_mobile_nav_helpers():
 
         if (!isDesktop()) {
             btn.style.setProperty('display', 'none', 'important');
-            document.body.classList.remove('vb-sidebar-collapsed');
+            // Do not mutate body class here; mobile logic owns sidebar.
             resetDesktopForMobile();
             return;
         }
 
-        const collapsed = detectCollapsed();
+        // Prefer our body class as the single source of truth; fall back to detection
+        const collapsed = document.body.classList.contains('vb-sidebar-collapsed') || detectCollapsed();
         const glyph = collapsed ? '\u00BB' : '\u00AB';
         btn.textContent = glyph;
         btn.setAttribute('aria-expanded', String(!collapsed));
         btn.style.setProperty('display', 'flex', 'important');
-        document.body.classList.toggle('vb-sidebar-collapsed', collapsed);
         syncExpandControl(collapsed);
 
         if (collapsed) {
@@ -1439,8 +1493,15 @@ def inject_mobile_nav_helpers():
             boundButton.removeEventListener('click', handleToggleClick, true);
             boundButton.removeEventListener('click', handleToggleClick, false);
         }
-
-        btn.addEventListener('click', handleToggleClick);
+        // Bind multiple event types for maximum reliability
+        btn.addEventListener('click', handleToggleClick, false);
+        btn.addEventListener('pointerdown', handleToggleClick, false);
+        btn.addEventListener('mousedown', handleToggleClick, false);
+        btn.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                handleToggleClick(e);
+            }
+        }, false);
         btn.dataset.vbSupremeBound = '1';
         boundButton = btn;
         console.log('VocalBrand SUPREME: Toggle wired to', btn);
@@ -1457,9 +1518,16 @@ def inject_mobile_nav_helpers():
             return;
         }
 
-        const collapsedBefore = detectCollapsed();
+        const collapsedBefore = document.body.classList.contains('vb-sidebar-collapsed') || detectCollapsed();
         console.log('VocalBrand SUPREME: Toggle clicked. collapsedBefore =', collapsedBefore);
 
+    // First, flip our CSS-driven state immediately for instant UX
+        const shouldBeOpen = collapsedBefore; // if it was collapsed, we want open
+        document.body.classList.toggle('vb-sidebar-collapsed', !shouldBeOpen);
+    // Clear any inline overrides so CSS rules take effect cleanly
+    clearSidebarInlineStyles();
+
+        // Then, try to sync with Streamlit native state (best-effort)
         if (collapsedBefore) {
             const expandBtn = document.querySelector(`${COLLAPSED_CONTROL_SELECTOR} button, [aria-label*="expand sidebar" i], [title*="expand" i]`);
             if (expandBtn) {
@@ -1475,9 +1543,8 @@ def inject_mobile_nav_helpers():
             }
         }
 
-        const shouldBeOpen = collapsedBefore;
-        requestAnimationFrame(() => forceSidebarState(shouldBeOpen));
-        setTimeout(() => forceSidebarState(shouldBeOpen), 120);
+        // As a fallback only, if CSS didn't win yet, nudge after a moment
+        setTimeout(() => forceSidebarState(shouldBeOpen), 160);
         setTimeout(updateButtonState, 40);
         setTimeout(updateButtonState, 180);
         setTimeout(updateButtonState, 400);
@@ -1489,8 +1556,49 @@ def inject_mobile_nav_helpers():
     }
 
     function init() {
+        // Expose global immediately so inline onclick can call it
+        try { window.vbToggleSidebar = () => handleToggleClick(); } catch {}
         heartbeat();
         console.log('VocalBrand SUPREME: Desktop toggle initialized.');
+        // Re-set global helper after heartbeat (safety)
+        try { window.vbToggleSidebar = () => handleToggleClick(); } catch {}
+        // Delegated fallback: capture clicks anywhere on the button
+        document.addEventListener('click', (e) => {
+            const t = e.target;
+            if (t && (t.id === TOGGLE_BUTTON_ID || (t.closest && t.closest('#'+TOGGLE_BUTTON_ID)))) {
+                handleToggleClick(e);
+            }
+        }, true);
+        // Nuclear CSS-only override as a last resort
+        try {
+            const css = `@media (min-width: ${DESKTOP_MIN_WIDTH}px){
+                body.vb-sidebar-collapsed [data-testid="stSidebar"],
+                body.vb-sidebar-collapsed section[data-testid="stSidebar"],
+                body.vb-sidebar-collapsed div[data-testid="stSidebar"],
+                body.vb-sidebar-collapsed .stSidebar,
+                body.vb-sidebar-collapsed [class*="sidebar" i]{
+                    transform: translateX(-100%) !important;
+                    opacity: 0.0001 !important;
+                    pointer-events: none !important;
+                    visibility: hidden !important;
+                    position: fixed !important;
+                    left: 0 !important; top: 0 !important; height: 100vh !important;
+                }
+                body:not(.vb-sidebar-collapsed) [data-testid="stSidebar"],
+                body:not(.vb-sidebar-collapsed) section[data-testid="stSidebar"],
+                body:not(.vb-sidebar-collapsed) div[data-testid="stSidebar"],
+                body:not(.vb-sidebar-collapsed) .stSidebar,
+                body:not(.vb-sidebar-collapsed) [class*="sidebar" i]{
+                    transform: translateX(0) !important;
+                    opacity: 1 !important;
+                    pointer-events: all !important;
+                    visibility: visible !important;
+                }
+            }`;
+            const styleEl = document.createElement('style');
+            styleEl.textContent = css;
+            document.head.appendChild(styleEl);
+        } catch {}
     }
 
     init();
@@ -1513,4 +1621,13 @@ def inject_mobile_nav_helpers():
 })();
 </script>
     """
-    markdown(html, unsafe_allow_html=True)
+    # Prefer st.html (Streamlit >= 1.36) which allows scripts in the main DOM
+    try:
+        html_func = getattr(st, "html", None)
+        if callable(html_func):
+            html_func(html)
+        else:
+            st.markdown(html, unsafe_allow_html=True)
+    except Exception:
+        # Fallback to markdown if html is unavailable
+        st.markdown(html, unsafe_allow_html=True)
