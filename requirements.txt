@@ -7,6 +7,7 @@ python-dotenv>=1.0.0
 streamlit-audiorecorder>=0.0.2
 sentry-sdk>=2.0.0
 passlib[bcrypt]>=1.7.4  # add explicit passlib so bcrypt scheme works predictably across envs
+psycopg2-binary>=2.9.9  # PostgreSQL adapter for production database persistence
 fastapi>=0.111.0         # webhook_server (Stripe webhooks)
 uvicorn[standard]>=0.30.0 # to run FastAPI webhook server
 python-multipart>=0.0.9   # ensure FastAPI can parse form-data if needed
@@ -14,4 +15,3 @@ typing-extensions>=4.12.0 # forward compatibility (some libs rely on it)
 pytest>=8.2.0             # optional: run tests (e.g., tests/test_engine_offline.py)
 git+https://github.com/stefanrmmr/streamlit_audio_recorder.git@777d18114130137d492c0378a86631fff1ff1be5#egg=streamlit-audiorec  # optional recorder component (pinned commit)
 streamlit-mic-recorder>=0.0.8
-
