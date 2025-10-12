@@ -40,6 +40,17 @@ CREATE TABLE IF NOT EXISTS users (
     setup_credits INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+-- Idempotency for Stripe sessions (subscriptions and one-time payments)
+CREATE TABLE IF NOT EXISTS processed_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT UNIQUE NOT NULL,
+    user_id INTEGER,
+    kind TEXT,                 -- e.g., 'subscription' | 'payment'
+    amount_cents INTEGER,
+    currency TEXT,
+    details TEXT,              -- freeform JSON or note
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 """
 
 
@@ -68,6 +79,24 @@ def init_db():
             conn.execute("SELECT setup_credits FROM users LIMIT 1")
         except sqlite3.OperationalError:
             conn.execute("ALTER TABLE users ADD COLUMN setup_credits INTEGER DEFAULT 0")
+        # Ensure processed_sessions exists (older deployments)
+        try:
+            conn.execute("SELECT session_id FROM processed_sessions LIMIT 1")
+        except sqlite3.OperationalError:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS processed_sessions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT UNIQUE NOT NULL,
+                    user_id INTEGER,
+                    kind TEXT,
+                    amount_cents INTEGER,
+                    currency TEXT,
+                    details TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+                """
+            )
     conn.close()
 
 
@@ -361,6 +390,49 @@ def ensure_demo_user():
     if count == 0:
         register_user("demo@vocalbrand.local", "demo123")
     conn.close()
+
+# -------------------------
+# Stripe session idempotency
+# -------------------------
+
+def has_processed_session(session_id: str) -> bool:
+    """Return True if this Stripe checkout session was already processed."""
+    if not session_id:
+        return False
+    conn = _get_conn()
+    try:
+        cur = conn.execute("SELECT 1 FROM processed_sessions WHERE session_id=?", (session_id,))
+        return cur.fetchone() is not None
+    finally:
+        conn.close()
+
+
+def mark_processed_session(
+    user_id: int | None,
+    session_id: str,
+    kind: str,
+    amount_cents: int | None = None,
+    currency: str | None = None,
+    details: str | None = None,
+) -> bool:
+    """Persist a processed Stripe session (safe to call multiple times).
+
+    Returns True if inserted, False if it already existed or on failure.
+    """
+    if not session_id:
+        return False
+    conn = _get_conn()
+    try:
+        with conn:
+            conn.execute(
+                "INSERT OR IGNORE INTO processed_sessions (session_id, user_id, kind, amount_cents, currency, details) VALUES (?, ?, ?, ?, ?, ?)",
+                (session_id, user_id, kind, amount_cents, currency, details),
+            )
+        # Check if row exists now
+        cur = conn.execute("SELECT 1 FROM processed_sessions WHERE session_id=?", (session_id,))
+        return cur.fetchone() is not None
+    finally:
+        conn.close()
 
 if __name__ == "__main__":
     init_db()

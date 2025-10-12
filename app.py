@@ -174,19 +174,73 @@ def handle_billing_return() -> None:
         sess_id = None
     if not billing:
         return
-    if billing == "success" and sess_id and payment_manager and st.session_state.get("user_id"):
-        sub_id = payment_manager.get_subscription_id_from_session(str(sess_id))
-        if sub_id:
-            # Persist to DB and session
+    if billing == "success" and sess_id and payment_manager:
+        # Attempt to fetch session details (covers subscription and one-time payments)
+        try:
+            summary = payment_manager.get_line_items_summary(str(sess_id))
+        except Exception:
+            summary = None
+
+        # Subscription activation path if created via in-app checkout
+        try:
+            sub_id = payment_manager.get_subscription_id_from_session(str(sess_id))
+        except Exception:
+            sub_id = None
+        if sub_id and st.session_state.get("user_id"):
             try:
                 from auth import set_subscription
-
                 set_subscription(st.session_state["user_id"], True, stripe_sub_id=sub_id)
                 st.session_state["subscription_active"] = True
                 st.success("Subscription activated! 🎉")
             except Exception:
                 st.session_state["subscription_active"] = True
-        # Clean query params (refresh without them)
+
+        # One-time entitlements (Payment Links or one-off payments)
+        try:
+            if summary and summary.get("mode") == "payment":
+                from auth import (
+                    add_minutes_balance,
+                    add_setup_credits,
+                    get_user_by_email,
+                    has_processed_session,
+                    mark_processed_session,
+                )
+                # Resolve user: prefer logged-in; else match by email from checkout
+                uid = st.session_state.get("user_id")
+                if not uid:
+                    email = summary.get("customer_email")
+                    if email:
+                        u = get_user_by_email(str(email))
+                        uid = u.get("id") if u else None
+                if uid:
+                    if not has_processed_session(str(sess_id)):
+                        minutes_added = 0
+                        setup_added = 0
+                        for item in summary.get("items", []) or []:
+                            price_id = item.get("price_id")
+                            qty = int(item.get("quantity") or 1)
+                            grant = ENTITLEMENT_MAP.get(price_id or "")
+                            if not grant:
+                                continue
+                            if grant.get("minutes"):
+                                minutes_added += int(grant["minutes"]) * qty
+                            if grant.get("setup"):
+                                setup_added += int(grant["setup"]) * qty
+                        if minutes_added > 0:
+                            new_min = add_minutes_balance(int(uid), minutes_added)
+                            st.success(f"Minutes pack activated: +{minutes_added} min (now {new_min})")
+                        if setup_added > 0:
+                            new_sc = add_setup_credits(int(uid), setup_added)
+                            st.success(f"Setup credit added: +{setup_added} (now {new_sc})")
+                        mark_processed_session(int(uid), str(sess_id), kind="payment", amount_cents=summary.get("amount_total"), currency=summary.get("currency"))
+                    else:
+                        st.info("Payment already processed. Your credits are up to date.")
+                else:
+                    st.warning("Payment received but cannot match to an account. Please sign in with the same email and refresh.")
+        except Exception as e:
+            st.warning(f"Post-payment processing note: {e}")
+
+        # Clean query params and refresh
         try:
             st.query_params.clear()
         except Exception:
@@ -391,6 +445,25 @@ payment_manager = PaymentManager(
     price_id=STRIPE_PRICE_ID,
     price_id_annual=STRIPE_PRICE_ID_ANNUAL
 ) if STRIPE_KEY else None
+
+# Map price IDs (env) to entitlements for one-time purchases
+PACK60_PRICE_ID = os.getenv("PACK60_PRICE_ID")
+PACK300_PRICE_ID = os.getenv("PACK300_PRICE_ID")
+PACK1000_PRICE_ID = os.getenv("PACK1000_PRICE_ID")
+SETUP_PRO_PRICE_ID = os.getenv("SETUP_PRO_PRICE_ID")
+SETUP_ENT_PRICE_ID = os.getenv("SETUP_ENT_PRICE_ID")
+
+ENTITLEMENT_MAP: Dict[str, Dict[str, int]] = {}
+if PACK60_PRICE_ID:
+    ENTITLEMENT_MAP[PACK60_PRICE_ID] = {"minutes": 60}
+if PACK300_PRICE_ID:
+    ENTITLEMENT_MAP[PACK300_PRICE_ID] = {"minutes": 300}
+if PACK1000_PRICE_ID:
+    ENTITLEMENT_MAP[PACK1000_PRICE_ID] = {"minutes": 1000}
+if SETUP_PRO_PRICE_ID:
+    ENTITLEMENT_MAP[SETUP_PRO_PRICE_ID] = {"setup": 1}
+if SETUP_ENT_PRICE_ID:
+    ENTITLEMENT_MAP[SETUP_ENT_PRICE_ID] = {"setup": 1}
 
 SESSION_DEFAULTS: Dict[str, Any] = {
     "user_id": None,
@@ -1007,80 +1080,103 @@ def render_upgrade_section(container: Any) -> None:
     container.markdown("#### 💎 Subscription Plans")
     
     user_ref = f"user_{st.session_state['user_id']}"
+    # Ensure annual_link is always defined for later checks
+    annual_link: Optional[str] = None
     
     # Monthly subscription (in-app checkout)
-    col1, col2 = container.columns([3, 1])
-    with col1:
+    with container.container():
         container.markdown("**Monthly Pro** — Unlimited generations, cancel anytime")
-    with col2:
-        if container.button("€29/mo", key="upgrade_btn_monthly", use_container_width=True):
+        if st.button("€29/mo", key="upgrade_btn_monthly", use_container_width=True):
             url, checkout_id = payment_manager.create_checkout_session(user_ref, plan="monthly")
             st.session_state["latest_checkout_id"] = checkout_id
-            container.markdown(f"[Open checkout →]({url})", unsafe_allow_html=True)
+            st.link_button("Open checkout →", url, type="primary")
+        container.markdown("")
     
     # Annual subscription (in-app checkout if price ID configured, otherwise Payment Link)
     if payment_manager.price_id_annual:
         # Use in-app checkout with annual price ID
-        col1, col2 = container.columns([3, 1])
-        with col1:
+        with container.container():
             container.markdown("**Annual Pro** — Save 17% (€290/year vs €348/year)")
-        with col2:
-            if container.button("€290/yr", key="upgrade_btn_annual", use_container_width=True):
+            if st.button("€290/yr", key="upgrade_btn_annual", use_container_width=True):
                 url, checkout_id = payment_manager.create_checkout_session(user_ref, plan="annual")
                 st.session_state["latest_checkout_id"] = checkout_id
-                container.markdown(f"[Open checkout →]({url})", unsafe_allow_html=True)
+                st.link_button("Open checkout →", url, type="primary")
+            container.markdown("")
     else:
         # Fall back to Payment Link if annual price ID not configured
         annual_link = os.getenv("ANNUAL_PAYMENT_LINK")
         if annual_link:
-            col1, col2 = container.columns([3, 1])
-            with col1:
+            with container.container():
                 container.markdown("**Annual Pro** — Save 17% (€290/year vs €348/year)")
-            with col2:
-                container.markdown(f"[€290/yr →]({annual_link})", unsafe_allow_html=True)
+                st.link_button("€290/yr →", annual_link)
+                container.markdown("")
     
     # One-time professional services
-    setup_links = {
-        "Setup — Professional": os.getenv("SETUP_PRO_PAYMENT_LINK"),
-        "Setup — Enterprise": os.getenv("SETUP_ENT_PAYMENT_LINK"),
+    setup_prices = {
+        "Setup — Professional": ("€497", SETUP_PRO_PRICE_ID, "60 min"),
+        "Setup — Enterprise": ("€997", SETUP_ENT_PRICE_ID, "120 min"),
     }
-    visible_setups = [(label, url) for label, url in setup_links.items() if url]
+    visible_setups = [(label, price, price_id, duration) for label, (price, price_id, duration) in setup_prices.items() if price_id]
     
     if visible_setups:
         container.markdown("---")
         container.markdown("#### 🚀 Professional Onboarding")
         container.caption("One-time guided setup services for teams and enterprises")
         
-        for label, url in visible_setups:
-            price = "€497" if "Professional" in label else "€997"
-            col1, col2 = container.columns([3, 1])
-            with col1:
-                duration = "60 min" if "Professional" in label else "120 min"
+        for idx, (label, price, price_id, duration) in enumerate(visible_setups):
+            with container.container():
                 container.markdown(f"**{label}** — {duration} guided setup & Q&A")
-            with col2:
-                container.markdown(f"[{price} →]({url})", unsafe_allow_html=True)
+                if st.button(f"{price} →", key=f"setup_{idx}_{price_id}", type="secondary", use_container_width=True):
+                    url, checkout_id = payment_manager.create_checkout_session(user_ref, plan="setup", price_id=price_id, mode="payment")
+                    st.session_state["latest_checkout_id"] = checkout_id
+                    st.link_button("Open checkout →", url, type="primary")
+                container.markdown("")
+        # Developer note: if Payment Links are shown but price ID envs are missing, remind to set them
+        if os.getenv("DEBUG_LOGGING", "0") == "1":
+            missing_envs: List[str] = []
+            if any("Professional" in lbl for lbl, _, _, _ in visible_setups) and not (SETUP_PRO_PRICE_ID):
+                missing_envs.append("SETUP_PRO_PRICE_ID")
+            if any("Enterprise" in lbl for lbl, _, _, _ in visible_setups) and not (SETUP_ENT_PRICE_ID):
+                missing_envs.append("SETUP_ENT_PRICE_ID")
+            if missing_envs:
+                container.caption(
+                    "Dev: Set price IDs for automatic entitlements → " + ", ".join(missing_envs)
+                )
     
     # Minutes packs for additional usage
-    pack_links = {
-        "60 min": os.getenv("PACK60_PAYMENT_LINK"),
-        "300 min": os.getenv("PACK300_PAYMENT_LINK"),
-        "1000 min": os.getenv("PACK1000_PAYMENT_LINK"),
+    pack_prices = {
+        "60 min": ("€89", PACK60_PRICE_ID),
+        "300 min": ("€399", PACK300_PRICE_ID),
+        "1000 min": ("€1,299", PACK1000_PRICE_ID),
     }
-    visible_packs = [(label, url) for label, url in pack_links.items() if url]
+    visible_packs = [(label, price, price_id) for label, (price, price_id) in pack_prices.items() if price_id]
     
     if visible_packs:
         container.markdown("---")
         container.markdown("#### ⚡ Additional Minutes Packs")
         container.caption("Premium voice minutes for professional use cases")
         
-        pack_prices = {"60 min": "€89", "300 min": "€399", "1000 min": "€1,299"}
-        for label, url in visible_packs:
-            price = pack_prices.get(label, "See pricing")
-            col1, col2 = container.columns([3, 1])
-            with col1:
+        for idx, (label, price, price_id) in enumerate(visible_packs):
+            with container.container():
                 container.markdown(f"**Voice Minutes Pack {label}**")
-            with col2:
-                container.markdown(f"[{price} →]({url})", unsafe_allow_html=True)
+                if st.button(f"{price} →", key=f"pack_{idx}_{price_id}", use_container_width=True):
+                    url, checkout_id = payment_manager.create_checkout_session(user_ref, plan="pack", price_id=price_id, mode="payment")
+                    st.session_state["latest_checkout_id"] = checkout_id
+                    st.link_button("Open checkout →", url, type="primary")
+                container.markdown("")
+        # Developer note for entitlement mapping of packs
+        if os.getenv("DEBUG_LOGGING", "0") == "1":
+            missing_envs: List[str] = []
+            if any(lbl == "60 min" for lbl, _, _ in visible_packs) and not (PACK60_PRICE_ID):
+                missing_envs.append("PACK60_PRICE_ID")
+            if any(lbl == "300 min" for lbl, _, _ in visible_packs) and not (PACK300_PRICE_ID):
+                missing_envs.append("PACK300_PRICE_ID")
+            if any(lbl == "1000 min" for lbl, _, _ in visible_packs) and not (PACK1000_PRICE_ID):
+                missing_envs.append("PACK1000_PRICE_ID")
+            if missing_envs:
+                container.caption(
+                    "Dev: Set price IDs for automatic entitlements → " + ", ".join(missing_envs)
+                )
     
     # Help section
     if visible_setups or visible_packs or annual_link:
@@ -1088,8 +1184,8 @@ def render_upgrade_section(container: Any) -> None:
         
         # Critical: explain automatic activation
         container.info(
-            "💡 **Automatic Activation:** Use the same email address for Payment Link checkouts as your VocalBrand account. "
-            "Credits are added instantly after payment."
+            "💡 **Automatic Activation:** Credits are added instantly after payment. "
+            "All purchases use the same secure checkout flow as Pro subscriptions."
         )
         
         with container.expander("💡 Payment Options FAQ", expanded=False):

@@ -61,9 +61,9 @@ PACK1000_PAYMENT_LINK=https://buy.stripe.com/...     # 1000 min pack
 4. Upgrade triggers Stripe Checkout; webhook marks subscription active
 
 ## Running Webhook Server (Local Dev)
-1. Start FastAPI server:
+1. Start FastAPI server (run from the project root):
 ```
-uvicorn vocalbrand.webhook_server:app --port 8787 --reload
+uvicorn webhook_server:app --port 8787 --reload
 ```
 2. In another terminal run Stripe CLI to forward events:
 ```

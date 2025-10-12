@@ -1,5 +1,6 @@
 """FastAPI webhook server for Stripe events.
-Run separately: uvicorn vocalbrand.webhook_server:app --reload --port 8787
+Run separately (from the project root):
+    uvicorn webhook_server:app --reload --port 8787
 
 Handles:
 - Subscription activations (Monthly/Annual Pro)
@@ -17,6 +18,7 @@ from auth import (
     get_user_by_email,
     add_minutes_balance,
     add_setup_credits,
+    mark_processed_session,
     _get_conn,
 )
 
@@ -24,6 +26,25 @@ app = FastAPI(title="VocalBrand Webhooks")
 
 stripe.api_key = os.getenv("STRIPE_API_KEY", "")
 WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+
+# Optional: explicit price→entitlement mapping via env (mirrors app.py)
+PACK60_PRICE_ID = os.getenv("PACK60_PRICE_ID")
+PACK300_PRICE_ID = os.getenv("PACK300_PRICE_ID")
+PACK1000_PRICE_ID = os.getenv("PACK1000_PRICE_ID")
+SETUP_PRO_PRICE_ID = os.getenv("SETUP_PRO_PRICE_ID")
+SETUP_ENT_PRICE_ID = os.getenv("SETUP_ENT_PRICE_ID")
+
+ENTITLEMENT_MAP: dict[str, dict[str, int]] = {}
+if PACK60_PRICE_ID:
+    ENTITLEMENT_MAP[PACK60_PRICE_ID] = {"minutes": 60}
+if PACK300_PRICE_ID:
+    ENTITLEMENT_MAP[PACK300_PRICE_ID] = {"minutes": 300}
+if PACK1000_PRICE_ID:
+    ENTITLEMENT_MAP[PACK1000_PRICE_ID] = {"minutes": 1000}
+if SETUP_PRO_PRICE_ID:
+    ENTITLEMENT_MAP[SETUP_PRO_PRICE_ID] = {"setup": 1}
+if SETUP_ENT_PRICE_ID:
+    ENTITLEMENT_MAP[SETUP_ENT_PRICE_ID] = {"setup": 1}
 
 # Product name patterns for automatic detection
 MINUTES_PACK_PATTERNS = {
@@ -110,6 +131,7 @@ async def stripe_webhook(request: Request):
         client_ref = data.get("client_reference_id")
         sub_id = data.get("subscription")
         amount = data.get("amount_total", 0)
+        session_id = data.get("id")
         
         # Get user ID (either from client_reference_id or email lookup)
         uid = None
@@ -140,33 +162,63 @@ async def stripe_webhook(request: Request):
             try:
                 session = stripe.checkout.Session.retrieve(
                     data.get("id"),
-                    expand=["line_items", "line_items.data.price.product"]
+                    expand=["line_items", "line_items.data.price", "line_items.data.price.product"]
                 )
                 
+                granted_minutes = 0
+                granted_setups = 0
+                details_notes: list[str] = []
+
                 for item in session.line_items.data:
-                    product = item.price.product
-                    product_name = product.name if hasattr(product, 'name') else str(product)
-                    quantity = item.quantity
-                    
-                    prod_type, value = detect_product_type(product_name, amount)
-                    
+                    price_obj = getattr(item, "price", None)
+                    price_id = getattr(price_obj, "id", None)
+                    product = getattr(price_obj, "product", None)
+                    product_name = None
+                    # product may be expanded or just an ID
+                    if hasattr(product, "name"):
+                        product_name = getattr(product, "name", None)
+                    elif isinstance(product, str):
+                        product_name = product
+                    quantity = getattr(item, "quantity", 1) or 1
+
+                    grant = ENTITLEMENT_MAP.get(str(price_id)) if price_id else None
+                    if grant:
+                        if grant.get("minutes"):
+                            m = int(grant["minutes"]) * int(quantity)
+                            new_balance = add_minutes_balance(uid, m)
+                            granted_minutes += m
+                            details_notes.append(f"price:{price_id} +{m}min (now {new_balance})")
+                        if grant.get("setup"):
+                            s = int(grant["setup"]) * int(quantity)
+                            new_sc = add_setup_credits(uid, s)
+                            granted_setups += s
+                            details_notes.append(f"price:{price_id} +{s}setup (now {new_sc})")
+                        continue
+
+                    # Fallback: detect by name/amount
+                    prod_type, value = detect_product_type(product_name or "", amount)
                     if prod_type == "minutes" and value > 0:
-                        total_minutes = value * quantity
+                        total_minutes = value * int(quantity)
                         new_balance = add_minutes_balance(uid, total_minutes)
-                        print(f"[INFO] Added {total_minutes} minutes to user {uid}, new balance: {new_balance}")
-                    
+                        granted_minutes += total_minutes
+                        details_notes.append(f"name:{product_name} +{total_minutes}min (now {new_balance})")
                     elif prod_type == "setup" and value > 0:
-                        total_credits = value * quantity
+                        total_credits = value * int(quantity)
                         new_credits = add_setup_credits(uid, total_credits)
-                        print(f"[INFO] Added {total_credits} setup credits to user {uid}, new total: {new_credits}")
-                    
+                        granted_setups += total_credits
+                        details_notes.append(f"name:{product_name} +{total_credits}setup (now {new_credits})")
                     elif prod_type == "subscription":
-                        # Annual payment link without subscription mode
                         set_subscription(uid, True)
-                        print(f"[INFO] Activated subscription via payment link for user {uid}")
-                    
+                        details_notes.append("activated subscription via payment link")
                     else:
                         print(f"[WARN] Unknown product type for {product_name}, amount {amount}")
+
+                # Record idempotency row for UI audit
+                try:
+                    details = "; ".join(details_notes) if details_notes else None
+                    mark_processed_session(uid, str(session_id), kind="payment", amount_cents=amount, currency=getattr(session, "currency", None), details=details)
+                except Exception as _e:
+                    print(f"[WARN] Could not record processed session: {_e}")
             
             except Exception as e:
                 print(f"[ERROR] Failed to process payment link: {e}")

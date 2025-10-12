@@ -657,6 +657,66 @@ section[data-testid="stSidebar"] {
 
 def inject_css():
     st.markdown(SUPREME_CSS, unsafe_allow_html=True)
+    # Subtle UI polish for pricing/link buttons in the sidebar
+    st.markdown(
+        """
+        <style>
+        /* Global polish for link buttons */
+        [data-testid="stLinkButton"] button,
+        a[data-testid="stLinkButton"] {
+            min-height: 40px !important;
+            border-radius: 10px !important;
+            padding: 0 14px !important;
+            box-shadow: 0 3px 8px rgba(0,0,0,.08) !important;
+            font-weight: 600 !important;
+        }
+
+        section[data-testid="stSidebar"] .stButton>button,
+        section[data-testid="stSidebar"] [data-testid="stLinkButton"] button,
+        section[data-testid="stSidebar"] [data-testid="stLinkButton"] a,
+        section[data-testid="stSidebar"] a[data-testid="stLinkButton"] {
+            width: 100% !important;
+            min-height: 42px !important;
+            border-radius: 10px !important;
+            padding: 0 14px !important;
+            box-shadow: 0 3px 8px rgba(0,0,0,.08) !important;
+        }
+        
+        /* Color hierarchy for pricing */
+        section[data-testid="stSidebar"] button[key*="upgrade_btn"] {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+            color: white !important;
+            font-weight: 700 !important;
+        }
+        section[data-testid="stSidebar"] button[key*="setup_"] {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%) !important;
+            color: white !important;
+            border: none !important;
+        }
+        section[data-testid="stSidebar"] button[key*="pack_"] {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%) !important;
+            color: white !important;
+            border: none !important;
+        }
+        section[data-testid="stSidebar"] button[key*="setup_"][key*="price_"] {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%) !important;
+            color: white !important;
+            border: none !important;
+        }
+        section[data-testid="stSidebar"] button[key*="pack_"][key*="price_"] {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%) !important;
+            color: white !important;
+            border: none !important;
+        }
+        
+        /* Compact the right column a bit and create breathing room between rows */
+        section[data-testid="stSidebar"] [data-testid="column"] {
+            margin-bottom: .35rem !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 def feature_columns(features: Iterable[str]):
     cols = st.columns(len(features))
