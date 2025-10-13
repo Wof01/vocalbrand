@@ -151,7 +151,7 @@ class VoiceManager:
         to_delete_count = len(sorted_voices) - keep_count
         voices_to_delete = sorted_voices[:to_delete_count]
         
-    logger.info(f"Deleting {to_delete_count} oldest voices (keeping {keep_count} most recent)")
+        logger.info(f"Deleting {to_delete_count} oldest voices (keeping {keep_count} most recent)")
         
         deleted_count = 0
         deleted_ids = []
