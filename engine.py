@@ -6,6 +6,9 @@ import requests
 from io import BytesIO
 from typing import Optional, Dict, Any, Tuple
 from metrics import metrics_collector
+import logging
+
+logger = logging.getLogger("vocalbrand.engine")
 
 ELEVEN_VOICE_ADD_URL = "https://api.elevenlabs.io/v1/voices/add"
 ELEVEN_TTS_URL = "https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
@@ -13,10 +16,11 @@ DEFAULT_MODEL_ID = "eleven_monolingual_v1"
 DEFAULT_OUTPUT_FORMAT = "mp3_44100_128"
 
 class VocalBrandEngine:
-    def __init__(self, api_key: str, *, timeout: int = 40, retries: int = 3):
+    def __init__(self, api_key: str, *, timeout: int = 40, retries: int = 3, voice_manager=None):
         self.api_key = api_key
         self.timeout = timeout
         self.retries = retries
+        self.voice_manager = voice_manager  # Optional VoiceManager for quota handling
         # Updated fallback voices - using current ElevenLabs pre-built voice IDs
         # These are stable voice IDs that exist in all ElevenLabs accounts
         self.fallback_voices = [
@@ -111,11 +115,65 @@ class VocalBrandEngine:
                 if 400 <= resp.status_code < 500:
                     # Client error - don't retry
                     error_msg = f"ElevenLabs API error (status {resp.status_code})"
+                    error_data = None
+                    
                     try:
                         error_data = resp.json()
                         error_msg = error_data.get("detail") or error_data.get("message") or error_msg
                     except:
                         pass
+                    
+                    # CRITICAL: Handle voice limit reached error
+                    if error_data and isinstance(error_data, dict):
+                        status = error_data.get("status", "")
+                        
+                        if status == "voice_limit_reached":
+                            # Voice quota full - attempt auto-cleanup
+                            logger.warning(f"Voice limit reached, attempting auto-cleanup...")
+                            
+                            if self.voice_manager:
+                                cleanup_result = self.voice_manager.auto_cleanup_if_needed(keep_count=25)
+                                
+                                if cleanup_result.get("cleaned"):
+                                    # Cleanup successful, retry cloning once
+                                    logger.info(f"Cleanup successful, retrying voice clone...")
+                                    
+                                    # Retry the clone request once
+                                    try:
+                                        retry_resp = requests.post(
+                                            ELEVEN_VOICE_ADD_URL,
+                                            headers=self._headers(),
+                                            files=files,
+                                            data=data,
+                                            timeout=self.timeout
+                                        )
+                                        
+                                        if retry_resp.status_code == 200:
+                                            j = retry_resp.json()
+                                            vid = j.get("voice_id") or j.get("voice", {}).get("voice_id")
+                                            if vid:
+                                                return {
+                                                    "success": True,
+                                                    "voice_id": vid,
+                                                    "provider": "elevenlabs_after_cleanup",
+                                                    "message": f"Voice '{voice_name}' cloned successfully (after auto-cleanup)!",
+                                                    "cleanup_performed": True
+                                                }
+                                    except Exception as retry_err:
+                                        logger.error(f"Retry after cleanup failed: {retry_err}")
+                            
+                            # Cleanup failed or didn't help
+                            return {
+                                "success": False,
+                                "voice_id": None,
+                                "provider": "quota_exceeded",
+                                "message": "Voice quota limit reached",
+                                "error_detail": str(error_data),
+                                "actionable_message": (
+                                    "Your ElevenLabs account has reached the maximum voice limit (30 voices). "
+                                    "Please delete some old voices from your ElevenLabs dashboard, or upgrade your plan."
+                                )
+                            }
                     
                     return {
                         "success": False,

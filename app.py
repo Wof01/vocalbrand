@@ -433,7 +433,13 @@ def initialize_recorder_support() -> Tuple[bool, str, str, str, str]:
 HAS_NATIVE_RECORDER, RECORDER_STATUS, FFMPEG_PATH, FFPROBE_PATH, RECORDER_MSG = initialize_recorder_support()
 
 ELEVENLABS_KEY = get_secret("ELEVENLABS_API_KEY", os.getenv("ELEVENLABS_API_KEY", "")) or ""
-engine = VocalBrandEngine(ELEVENLABS_KEY)
+
+# Initialize voice manager for quota handling
+from voice_manager import create_voice_manager
+voice_manager = create_voice_manager(ELEVENLABS_KEY)
+
+# Initialize engine with voice manager
+engine = VocalBrandEngine(ELEVENLABS_KEY, voice_manager=voice_manager)
 if engine.offline:
     logger.warning("Engine operating in offline mode (%s)", engine.offline_reason)
 
@@ -938,6 +944,7 @@ def render_clone_section() -> None:
                 
                 error_msg = result.get("message", "Voice cloning failed")
                 error_detail = result.get("error_detail", "")
+                provider = result.get("provider", "unknown")
                 
                 st.error(f"❌ **Voice Cloning Failed**\n\n{error_msg}")
                 
@@ -945,15 +952,25 @@ def render_clone_section() -> None:
                     with st.expander("🔍 Technical Details"):
                         st.code(error_detail)
                 
-                # Provide actionable feedback
-                st.warning(
-                    "**What to try:**\n"
-                    "- Ensure audio is at least 30 seconds long\n"
-                    "- Speak clearly in a quiet environment\n"
-                    "- Check microphone quality\n"
-                    "- Try recording again with better audio quality\n"
-                    "- Verify your ElevenLabs API key is valid"
-                )
+                # Provide actionable feedback based on error type
+                if provider == "quota_exceeded":
+                    st.info(
+                        "**Voice Quota Limit Reached**\n\n"
+                        "The system automatically attempted to clean up old voices and retry, "
+                        "but the operation still failed. This means:\n\n"
+                        "- You may have reached your ElevenLabs plan limit\n"
+                        "- Try again in a moment (automatic cleanup may need time)\n"
+                        "- Consider upgrading your ElevenLabs plan for more voice slots"
+                    )
+                else:
+                    st.warning(
+                        "**What to try:**\n"
+                        "- Ensure audio is at least 30 seconds long\n"
+                        "- Speak clearly in a quiet environment\n"
+                        "- Check microphone quality\n"
+                        "- Try recording again with better audio quality\n"
+                        "- Verify your ElevenLabs API key is valid"
+                    )
     with col2:
         if st.button("Discard sample", key="discard_sample_btn"):
             st.session_state["pending_audio_bytes"] = b""
