@@ -438,6 +438,11 @@ ELEVENLABS_KEY = get_secret("ELEVENLABS_API_KEY", os.getenv("ELEVENLABS_API_KEY"
 from voice_manager import create_voice_manager
 voice_manager = create_voice_manager(ELEVENLABS_KEY)
 
+if voice_manager:
+    logger.info("✅ Voice manager initialized successfully - auto-cleanup enabled")
+else:
+    logger.error("❌ Voice manager NOT initialized - auto-cleanup DISABLED!")
+
 # Initialize engine with voice manager
 engine = VocalBrandEngine(ELEVENLABS_KEY, voice_manager=voice_manager)
 if engine.offline:

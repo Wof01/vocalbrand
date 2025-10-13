@@ -129,14 +129,18 @@ class VocalBrandEngine:
                         
                         if status == "voice_limit_reached":
                             # Voice quota full - attempt auto-cleanup
-                            logger.warning(f"Voice limit reached, attempting auto-cleanup...")
+                            logger.warning(f"Voice limit reached (30/30), FORCING auto-cleanup...")
                             
                             if self.voice_manager:
-                                cleanup_result = self.voice_manager.auto_cleanup_if_needed(keep_count=25)
+                                # FORCE cleanup by calling cleanup_oldest_voices directly (not auto_cleanup_if_needed)
+                                cleanup_result = self.voice_manager.cleanup_oldest_voices(keep_count=25)
                                 
-                                if cleanup_result.get("cleaned"):
+                                deleted_count = cleanup_result.get("deleted", 0)
+                                logger.info(f"Cleanup deleted {deleted_count} voices")
+                                
+                                if deleted_count > 0:
                                     # Cleanup successful, retry cloning once
-                                    logger.info(f"Cleanup successful, retrying voice clone...")
+                                    logger.info(f"Cleanup successful ({deleted_count} voices deleted), retrying voice clone...")
                                     
                                     # Retry the clone request once
                                     try:
@@ -152,15 +156,23 @@ class VocalBrandEngine:
                                             j = retry_resp.json()
                                             vid = j.get("voice_id") or j.get("voice", {}).get("voice_id")
                                             if vid:
+                                                logger.info(f"Voice cloned successfully after cleanup!")
                                                 return {
                                                     "success": True,
                                                     "voice_id": vid,
                                                     "provider": "elevenlabs_after_cleanup",
-                                                    "message": f"Voice '{voice_name}' cloned successfully (after auto-cleanup)!",
-                                                    "cleanup_performed": True
+                                                    "message": f"Voice '{voice_name}' cloned successfully! (Auto-cleanup: {deleted_count} old voices removed)",
+                                                    "cleanup_performed": True,
+                                                    "cleanup_details": cleanup_result
                                                 }
+                                        else:
+                                            logger.error(f"Retry failed after cleanup: {retry_resp.status_code} - {retry_resp.text[:200]}")
                                     except Exception as retry_err:
                                         logger.error(f"Retry after cleanup failed: {retry_err}")
+                                else:
+                                    logger.error(f"Cleanup failed - no voices deleted!")
+                            else:
+                                logger.error("Voice manager not initialized - cannot auto-cleanup!")
                             
                             # Cleanup failed or didn't help
                             return {
@@ -171,7 +183,8 @@ class VocalBrandEngine:
                                 "error_detail": str(error_data),
                                 "actionable_message": (
                                     "Your ElevenLabs account has reached the maximum voice limit (30 voices). "
-                                    "Please delete some old voices from your ElevenLabs dashboard, or upgrade your plan."
+                                    "Auto-cleanup attempted but failed. Please manually delete old voices from your "
+                                    "ElevenLabs dashboard (https://elevenlabs.io/app/voice-lab), or upgrade your plan."
                                 )
                             }
                     

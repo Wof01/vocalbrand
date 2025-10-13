@@ -110,9 +110,22 @@ class VoiceManager:
         Returns:
             Dict with deletion results
         """
+        logger.info(f"Starting voice cleanup - target: keep {keep_count} voices")
+        
         custom_voices = self.get_custom_voices()
         
+        if not custom_voices:
+            logger.warning("No custom voices found!")
+            return {
+                "success": False,
+                "deleted": 0,
+                "error": "No custom voices found in account"
+            }
+        
+        logger.info(f"Found {len(custom_voices)} custom voices")
+        
         if len(custom_voices) <= keep_count:
+            logger.info(f"Only {len(custom_voices)} voices, no cleanup needed")
             return {
                 "success": True,
                 "deleted": 0,
@@ -130,6 +143,8 @@ class VoiceManager:
         to_delete_count = len(sorted_voices) - keep_count
         voices_to_delete = sorted_voices[:to_delete_count]
         
+        logger.info(f"Deleting {to_delete_count} oldest voices (keeping {keep_count} most recent)")
+        
         deleted_count = 0
         deleted_ids = []
         failed_ids = []
@@ -139,12 +154,16 @@ class VoiceManager:
             voice_name = voice.get("name", "Unknown")
             
             if voice_id:
+                logger.info(f"Attempting to delete: {voice_name} ({voice_id})")
                 if self.delete_voice(voice_id):
                     deleted_count += 1
                     deleted_ids.append({"id": voice_id, "name": voice_name})
-                    logger.info(f"Deleted old voice: {voice_name} ({voice_id})")
+                    logger.info(f"✅ Deleted old voice: {voice_name} ({voice_id})")
                 else:
                     failed_ids.append({"id": voice_id, "name": voice_name})
+                    logger.error(f"❌ Failed to delete: {voice_name} ({voice_id})")
+        
+        logger.info(f"Cleanup complete: {deleted_count} deleted, {len(failed_ids)} failed")
         
         return {
             "success": True,
