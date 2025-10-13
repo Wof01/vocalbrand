@@ -119,13 +119,22 @@ class VocalBrandEngine:
                     
                     try:
                         error_data = resp.json()
-                        error_msg = error_data.get("detail") or error_data.get("message") or error_msg
-                    except:
-                        pass
+                        # ElevenLabs often returns {"detail": {"status": "voice_limit_reached", ...}}
+                        if isinstance(error_data, dict) and isinstance(error_data.get("detail"), dict):
+                            detail = error_data.get("detail", {})
+                            # promote nested keys to top-level variables for ease of handling
+                            error_msg = detail.get("message") or error_data.get("message") or error_msg
+                            error_status = detail.get("status")
+                        else:
+                            error_msg = error_data.get("detail") or error_data.get("message") or error_msg
+                            error_status = error_data.get("status")
+                    except Exception:
+                        error_status = None
                     
                     # CRITICAL: Handle voice limit reached error
                     if error_data and isinstance(error_data, dict):
-                        status = error_data.get("status", "")
+                        # Use parsed error_status when available
+                        status = error_status or error_data.get("status", "")
                         
                         if status == "voice_limit_reached":
                             # Voice quota full - attempt auto-cleanup
@@ -136,9 +145,10 @@ class VocalBrandEngine:
                                 cleanup_result = self.voice_manager.cleanup_oldest_voices(keep_count=25)
                                 
                                 deleted_count = cleanup_result.get("deleted", 0)
-                                logger.info(f"Cleanup deleted {deleted_count} voices")
+                                confirmed = cleanup_result.get("confirmed", False)
+                                logger.info(f"Cleanup deleted={deleted_count}, confirmed={confirmed}")
                                 
-                                if deleted_count > 0:
+                                if deleted_count > 0 or confirmed:
                                     # Cleanup successful, retry cloning once
                                     logger.info(f"Cleanup successful ({deleted_count} voices deleted), retrying voice clone...")
                                     

@@ -21,7 +21,8 @@ class VoiceManager:
     def __init__(self, api_key: str, *, timeout: int = 30):
         self.api_key = api_key
         self.timeout = timeout
-        self._headers = {"xi-api-key": api_key}
+        # include Accept to avoid some proxies returning HTML
+        self._headers = {"xi-api-key": api_key, "accept": "application/json"}
     
     def get_all_voices(self) -> Dict[str, Any]:
         """Get all voices in the account.
@@ -91,11 +92,18 @@ class VoiceManager:
                 timeout=self.timeout
             )
             
-            if resp.status_code == 200:
-                logger.info(f"Successfully deleted voice: {voice_id}")
+            # ElevenLabs may return 200 OK, 202 Accepted (async), or 204 No Content
+            if resp.status_code in (200, 202, 204):
+                logger.info(f"Successfully requested deletion for voice: {voice_id} (status={resp.status_code})")
                 return True
             else:
-                logger.warning(f"Failed to delete voice {voice_id}: {resp.status_code}")
+                # surface up to 300 chars of body for diagnostics
+                body = None
+                try:
+                    body = resp.text[:300]
+                except Exception:
+                    body = "<no-body>"
+                logger.warning(f"Failed to delete voice {voice_id}: status={resp.status_code} body={body}")
                 return False
         except Exception as e:
             logger.error(f"Error deleting voice {voice_id}: {e}")
@@ -143,7 +151,7 @@ class VoiceManager:
         to_delete_count = len(sorted_voices) - keep_count
         voices_to_delete = sorted_voices[:to_delete_count]
         
-        logger.info(f"Deleting {to_delete_count} oldest voices (keeping {keep_count} most recent)")
+    logger.info(f"Deleting {to_delete_count} oldest voices (keeping {keep_count} most recent)")
         
         deleted_count = 0
         deleted_ids = []
@@ -163,7 +171,14 @@ class VoiceManager:
                     failed_ids.append({"id": voice_id, "name": voice_name})
                     logger.error(f"❌ Failed to delete: {voice_name} ({voice_id})")
         
-        logger.info(f"Cleanup complete: {deleted_count} deleted, {len(failed_ids)} failed")
+        logger.info(f"Cleanup requests complete: {deleted_count} requested deletions, {len(failed_ids)} failed")
+        
+        # After issuing deletes, poll until the quota reflects deletions (eventual consistency)
+        confirmation = self.wait_until_quota_below(keep_count=keep_count, timeout=25, interval=1.5)
+        logger.info(
+            "Post-cleanup quota check: within_limit=%s final_count=%s attempts=%s",
+            confirmation.get("within_limit"), confirmation.get("final_count"), confirmation.get("attempts")
+        )
         
         return {
             "success": True,
@@ -171,8 +186,32 @@ class VoiceManager:
             "failed": len(failed_ids),
             "deleted_voices": deleted_ids,
             "failed_voices": failed_ids,
-            "message": f"Cleaned up {deleted_count} old voices"
+            "confirmed": confirmation.get("within_limit"),
+            "final_count": confirmation.get("final_count"),
+            "message": f"Cleaned up {deleted_count} old voices (confirmed={confirmation.get('within_limit')})"
         }
+
+    def wait_until_quota_below(self, *, keep_count: int, timeout: int = 20, interval: float = 1.5) -> Dict[str, Any]:
+        """Poll ElevenLabs until the number of custom voices is <= keep_count or timeout.
+
+        Returns dict with keys: within_limit, final_count, attempts, success
+        """
+        import time as _time
+        attempts = 0
+        deadline = _time.time() + timeout
+        final_count = None
+        while _time.time() < deadline:
+            attempts += 1
+            try:
+                custom_voices = self.get_custom_voices()
+                final_count = len(custom_voices)
+                if final_count <= keep_count:
+                    return {"success": True, "within_limit": True, "final_count": final_count, "attempts": attempts}
+            except Exception as e:  # noqa: BLE001
+                logger.warning(f"Quota poll failed (attempt {attempts}): {e}")
+            _time.sleep(interval)
+        # Timed out
+        return {"success": False, "within_limit": False, "final_count": final_count, "attempts": attempts}
     
     def get_quota_info(self) -> Dict[str, Any]:
         """Get current voice quota usage.
