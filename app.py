@@ -911,8 +911,10 @@ def render_clone_section() -> None:
             buf.name = meta.get("filename", "voice.wav")
             with st.spinner("Contacting ElevenLabs..."):
                 result = engine.clone_voice(buf, voice_label.strip() or "VocalBrand Voice")
-            if result.get("success"):
-                st.session_state["clone_voice_id"] = result.get("voice_id", "")
+            
+            # CRITICAL: Only save voice_id if cloning was actually successful
+            if result.get("success") and result.get("voice_id"):
+                st.session_state["clone_voice_id"] = result.get("voice_id")
                 st.session_state["clone_voice_label"] = voice_label
                 st.session_state["clone_status"] = result.get("message", "")
                 st.session_state["clone_timestamp"] = datetime.utcnow().isoformat()
@@ -928,9 +930,30 @@ def render_clone_section() -> None:
                     }
                 )
                 st.session_state["clone_history"] = history[-15:]
-                st.success(f"Voice ready! ID: {result.get('voice_id')}")
+                st.success(f"✅ Voice cloned successfully! ID: {result.get('voice_id')}")
             else:
-                st.error(result.get("message", "Voice cloning failed"))
+                # CRITICAL: Clear any previous voice_id on failure
+                st.session_state["clone_voice_id"] = ""
+                st.session_state["clone_status"] = ""
+                
+                error_msg = result.get("message", "Voice cloning failed")
+                error_detail = result.get("error_detail", "")
+                
+                st.error(f"❌ **Voice Cloning Failed**\n\n{error_msg}")
+                
+                if error_detail:
+                    with st.expander("🔍 Technical Details"):
+                        st.code(error_detail)
+                
+                # Provide actionable feedback
+                st.warning(
+                    "**What to try:**\n"
+                    "- Ensure audio is at least 30 seconds long\n"
+                    "- Speak clearly in a quiet environment\n"
+                    "- Check microphone quality\n"
+                    "- Try recording again with better audio quality\n"
+                    "- Verify your ElevenLabs API key is valid"
+                )
     with col2:
         if st.button("Discard sample", key="discard_sample_btn"):
             st.session_state["pending_audio_bytes"] = b""
@@ -953,8 +976,10 @@ def render_clone_section() -> None:
         buf.name = meta.get("filename", "voice.wav")
         with st.spinner("Auto-cloning with ElevenLabs..."):
             result = engine.clone_voice(buf, voice_label_aut)
-        if result.get("success"):
-            st.session_state["clone_voice_id"] = result.get("voice_id", "")
+        
+        # CRITICAL: Only save voice_id if cloning was actually successful
+        if result.get("success") and result.get("voice_id"):
+            st.session_state["clone_voice_id"] = result.get("voice_id")
             st.session_state["clone_voice_label"] = voice_label_aut
             st.session_state["clone_status"] = result.get("message", "")
             st.session_state["clone_timestamp"] = datetime.utcnow().isoformat()
@@ -984,10 +1009,31 @@ def render_generation_section() -> None:
         "Usage policy: Pro includes 30 TTS minutes/month. Additional usage via Minutes Packs (sold by Payment Links)."
     )
     voice_id = st.session_state.get("clone_voice_id", "")
+    
+    # CRITICAL: Validate voice_id before allowing generation
     if not voice_id:
-        st.warning("Clone a voice before generating audio.")
+        st.warning("⚠️ **Clone a voice before generating audio.**\n\nGo to the Voice Cloning section above to record and clone your voice first.")
         return
-    st.caption(f"Voice ID: {voice_id}")
+    
+    # CRITICAL: Validate voice_id format (ElevenLabs IDs are alphanumeric, 20-30 chars)
+    if len(voice_id) < 15 or not any(c.isdigit() for c in voice_id) or not any(c.isalpha() for c in voice_id):
+        st.error(
+            f"❌ **Invalid voice ID detected:** `{voice_id}`\n\n"
+            "This usually happens when voice cloning failed but wasn't properly handled.\n\n"
+            "**Please re-clone your voice using the Voice Cloning section above.**"
+        )
+        # Clear the invalid voice ID
+        st.session_state["clone_voice_id"] = ""
+        if st.button("Clear Invalid Voice & Restart"):
+            st.session_state["clone_voice_id"] = ""
+            st.session_state["clone_status"] = ""
+            st.rerun()
+        return
+    
+    st.caption(f"✅ Voice ID: `{voice_id}`")
+    voice_label = st.session_state.get("clone_voice_label", "Your Voice")
+    if voice_label:
+        st.caption(f"Voice: **{voice_label}**")
     with st.expander("Language tips (i)", expanded=False):
         st.markdown(
             "- For English: use the default model and write clean sentences.\n"
