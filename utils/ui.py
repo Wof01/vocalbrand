@@ -13,11 +13,26 @@ SUPREME_CSS = """
     --warning-orange:#f59e0b;
 }
 
-/* Main gradient background */
+/* Accessible base theme — high contrast and brand colors */
+/* App shell background kept light for readability */
 .main { 
-    background: linear-gradient(135deg,#667eea 0%,#764ba2 100%); 
+    background: #f8fafc; /* very light slate for neutral contrast */
     font-family: 'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; 
+    color: #0f172a; /* slate-900 equivalent */
 }
+
+/* Global text color enforcement to fix faint/low-contrast text */
+body, .stApp, .block-container,
+[data-testid="stMarkdownContainer"],
+h1, h2, h3, h4, h5, h6,
+p, li, label, span, div,
+code, pre, kbd, samp, strong, em {
+    color: #0f172a !important; /* dark text everywhere */
+}
+
+/* Links use primary blue; hovered/active use gold for clear affordance */
+a, a:visited { color: var(--primary-blue) !important; }
+a:hover, a:focus { color: var(--accent-gold) !important; }
 
 /* App container with elegant shadow */
 .stApp { 
@@ -79,6 +94,20 @@ SUPREME_CSS = """
     text-align:center; 
     margin-bottom:1rem; 
 }
+
+/* Tabs — ensure clear selected state and readable labels */
+div[data-testid="stTabs"] div[role="tablist"] > div[role="tab"],
+div[data-baseweb="tab-list"] button {
+    color: #0f172a !important;
+}
+div[data-testid="stTabs"] div[role="tablist"] > div[role="tab"][aria-selected="true"],
+div[data-baseweb="tab-list"] button[aria-selected="true"] {
+    background: var(--primary-blue) !important;
+    color: #ffffff !important;
+    border-radius: 10px !important;
+}
+div[data-testid="stTabs"] div[role="tablist"] > div[role="tab"]:focus,
+div[data-baseweb="tab-list"] button:focus { outline: 3px solid var(--accent-gold) !important; outline-offset: 2px; }
 
 /* ===============================================
    MOBILE NAVIGATION - ROCK SOLID IMPLEMENTATION
@@ -155,7 +184,8 @@ SUPREME_CSS = """
         box-shadow: 0 0 50px rgba(0,0,0,.3) !important;
         width: 21rem !important;
         max-width: 80vw !important;
-        background: white !important;
+        background: #ffffff !important;
+        color: #0f172a !important;
     }
     
     /* Ensure sidebar content wrapper is properly visible */
@@ -176,6 +206,7 @@ SUPREME_CSS = """
         visibility: visible !important;
         opacity: 1 !important;
         display: block !important;
+        color: #0f172a !important;
     }
     
     /* Add padding to main content to avoid overlap with sticky hamburger */
@@ -467,6 +498,8 @@ section[data-testid="stSidebar"] {
     border-radius: 8px;
     border: 2px solid #e5e7eb;
     transition: all .2s ease;
+    background: #ffffff !important;
+    color: #0f172a !important;
 }
 
 .stTextInput > div > div > input:focus,
@@ -474,6 +507,14 @@ section[data-testid="stSidebar"] {
     border-color: var(--primary-blue);
     box-shadow: 0 0 0 3px rgba(26, 54, 93, .1);
 }
+
+/* Input placeholders readable but subtle */
+.stTextInput input::placeholder,
+.stTextArea textarea::placeholder { color: #64748b !important; }
+
+/* Selects and number inputs */
+select, input[type="number"], input[type="search"] { color: #0f172a !important; background:#ffffff !important; }
+select:focus, input[type="number"]:focus, input[type="search"]:focus { outline: 3px solid rgba(26,54,93,.25); }
 
 /* Expander styling */
 .streamlit-expanderHeader {
