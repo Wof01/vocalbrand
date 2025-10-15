@@ -21,6 +21,10 @@ SUPREME_CSS = """
     color: #0f172a; /* slate-900 equivalent */
 }
 
+/* Make sure the outer container is also light (prevents dark rims) */
+[data-testid="stAppViewContainer"], html, body { background: #f8fafc !important; color-scheme: light !important; }
+[data-testid="stHeader"] { background: #ffffff00 !important; }
+
 /* Global text color enforcement to fix faint/low-contrast text */
 body, .stApp, .block-container,
 [data-testid="stMarkdownContainer"],
@@ -46,7 +50,7 @@ a:hover, a:focus { color: var(--accent-gold) !important; }
 /* Primary buttons with hover effects */
 .stButton>button { 
     background:linear-gradient(135deg,var(--primary-blue) 0%, #2d3748 100%); 
-    color:white; 
+    color:#ffffff !important; /* Ensure white text for maximum contrast on blue */
     border:none; 
     padding:.75rem 2rem; 
     border-radius:12px; 
@@ -61,12 +65,40 @@ a:hover, a:focus { color: var(--accent-gold) !important; }
     transform:translateY(-2px); 
     box-shadow:0 10px 15px -3px rgba(0,0,0,.2); 
     background:linear-gradient(135deg,#2d3748 0%, var(--primary-blue) 100%);
+    color:#ffffff !important; /* Preserve white text on hover */
 }
 
 .stButton>button:active {
     transform:translateY(0);
     box-shadow:0 4px 6px -1px rgba(0,0,0,.1);
 }
+/* Disabled primary buttons should still use white text for legibility */
+.stButton>button:disabled, .stButton>button[disabled] {
+    color:#ffffff !important; opacity:.6;
+}
+
+/* Ensure icons within buttons are visible on dark backgrounds */
+.stButton>button svg { color:#ffffff !important; fill:#ffffff !important; }
+
+/* Apply consistent white text to other Streamlit button variants */
+.stDownloadButton>button,
+.stFormSubmitButton>button {
+    color:#ffffff !important;
+}
+/* Link buttons rendered as anchors */
+.stLinkButton a,
+.stLinkButton>a,
+.stLinkButton button,
+.stLinkButton [data-testid="baseButton-primary"] {
+    color:#ffffff !important;
+}
+[data-testid="stLinkButton"] a { color:#ffffff !important; }
+
+/* Streamlit's new unified base button test id — enforce white text for primary buttons */
+[data-testid="baseButton-primary"] { color:#ffffff !important; }
+[data-testid="baseButton-primary"] svg { color:#ffffff !important; fill:#ffffff !important; }
+[data-testid="baseButton-primary"][aria-disabled="true"] { color:#ffffff !important; opacity:.6; }
+[data-testid="baseButton-primary"] * { color:#ffffff !important; fill:#ffffff !important; }
 
 /* Premium cards */
 .premium-card { 
@@ -95,18 +127,68 @@ a:hover, a:focus { color: var(--accent-gold) !important; }
     margin-bottom:1rem; 
 }
 
+/* ===============================
+   Brand Component Kit (Ultra Supreme)
+   =============================== */
+/* Button system */
+.vb-btn { display:inline-flex; align-items:center; gap:.5rem; font-weight:700; border-radius:12px; padding:.7rem 1.25rem; border:2px solid transparent; cursor:pointer; text-decoration:none; }
+.vb-btn--primary { background:linear-gradient(135deg,var(--primary-blue) 0%, #0b2344 100%); color:#ffffff !important; }
+.vb-btn--primary:hover { filter:brightness(1.05); box-shadow:0 8px 18px rgba(26,54,93,.25); }
+.vb-btn--secondary { background:#ffffff; color:var(--primary-blue); border-color:var(--primary-blue); }
+.vb-btn--secondary:hover { background:#f8fafc; }
+.vb-btn--tertiary { background:transparent; color:var(--primary-blue); }
+.vb-btn:disabled, .vb-btn[disabled] { opacity:.5; cursor:not-allowed; box-shadow:none; }
+
+/* Section headers */
+.vb-section-title { font-size:1.5rem; font-weight:800; color:#0f172a; border-left:6px solid var(--accent-gold); padding-left:.6rem; margin:.25rem 0 .75rem; }
+
+/* Stat cards */
+.vb-stat { text-align:center; }
+.vb-stat .vb-stat__value { font-size:2.2rem; font-weight:800; margin:0; }
+.vb-stat .vb-stat__label { font-weight:700; margin:.5rem 0 0 0; }
+.vb-stat .vb-stat__sub { font-size:.9rem; margin:.25rem 0 0 0; }
+.vb-stat--success { background: linear-gradient(135deg,#ecfdf5 0%,#d1fae5 100%); border:1px solid #10b981; }
+.vb-stat--success .vb-stat__value { color:#064e3b; }
+.vb-stat--success .vb-stat__label { color:#065f46; }
+.vb-stat--success .vb-stat__sub { color:#047857; }
+.vb-stat--info { background: linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%); border:1px solid #1e40af; }
+.vb-stat--info .vb-stat__value { color:#0f172a; }
+.vb-stat--info .vb-stat__label { color:#1e3a8a; }
+.vb-stat--info .vb-stat__sub { color:#1d4ed8; }
+.vb-stat--brand { background: linear-gradient(135deg,#fff7ed 0%,#fde68a 100%); border:1px solid var(--accent-gold); }
+.vb-stat--brand .vb-stat__value { color:#7c5a00; }
+.vb-stat--brand .vb-stat__label { color:#6b4f00; }
+.vb-stat--brand .vb-stat__sub { color:#8a5f00; }
+
+/* Upgrade banner */
+.vb-banner { border-radius:16px; padding:1.25rem; border:1px solid rgba(26,54,93,.12); }
+.vb-banner--upgrade { background:linear-gradient(135deg, var(--primary-blue) 0%, #0b2344 100%); color:#fff; border-color:#0b2344; }
+/* Override global text color: ensure ALL text inside the banner stays white */
+.vb-banner--upgrade, .vb-banner--upgrade * { color:#ffffff !important; fill:#ffffff !important; }
+.vb-banner--upgrade .vb-banner__title { font-weight:800; font-size:1.2rem; }
+.vb-banner--upgrade .vb-banner__sub { opacity:.9; }
+
 /* Tabs — ensure clear selected state and readable labels */
-div[data-testid="stTabs"] div[role="tablist"] > div[role="tab"],
-div[data-baseweb="tab-list"] button {
-    color: #0f172a !important;
-}
-div[data-testid="stTabs"] div[role="tablist"] > div[role="tab"][aria-selected="true"],
+/* BaseWeb and Streamlit tabs variants */
+div[data-testid="stTabs"] [role="tab"],
+.stTabs [role="tab"],
+div[data-baseweb="tab-list"] button { color: #0f172a !important; background: #e2e8f0 !important; border-radius: 10px !important; }
+div[data-testid="stTabs"] [role="tab"][aria-selected="true"],
+.stTabs [role="tab"][aria-selected="true"],
 div[data-baseweb="tab-list"] button[aria-selected="true"] {
     background: var(--primary-blue) !important;
     color: #ffffff !important;
-    border-radius: 10px !important;
 }
-div[data-testid="stTabs"] div[role="tablist"] > div[role="tab"]:focus,
+/* Ensure inner text inside selected tabs is white */
+.stTabs [role="tab"][aria-selected="true"] *,
+div[data-testid="stTabs"] [role="tab"][aria-selected="true"] *,
+div[data-baseweb="tab-list"] button[aria-selected="true"] * { color:#ffffff !important; fill:#ffffff !important; }
+/* Ensure unselected tabs use dark readable text */
+.stTabs [role="tab"]:not([aria-selected="true"]) *,
+div[data-testid="stTabs"] [role="tab"]:not([aria-selected="true"]) *,
+div[data-baseweb="tab-list"] button:not([aria-selected="true"]) * { color:#0f172a !important; }
+div[data-testid="stTabs"] [role="tab"]:focus,
+.stTabs [role="tab"]:focus,
 div[data-baseweb="tab-list"] button:focus { outline: 3px solid var(--accent-gold) !important; outline-offset: 2px; }
 
 /* ===============================================
@@ -208,6 +290,9 @@ div[data-baseweb="tab-list"] button:focus { outline: 3px solid var(--accent-gold
         display: block !important;
         color: #0f172a !important;
     }
+
+    /* Ensure no accidental dimming on sidebar */
+    section[data-testid="stSidebar"] * { filter: none !important; }
     
     /* Add padding to main content to avoid overlap with sticky hamburger */
     .block-container {
@@ -458,6 +543,7 @@ section[data-testid="stSidebar"] {
     border-left: 4px solid var(--success-green);
     border-radius: 8px;
     animation: slideIn .3s ease;
+    color: #064e3b !important;
 }
 
 .stError {
@@ -465,6 +551,7 @@ section[data-testid="stSidebar"] {
     border-left: 4px solid var(--error-red);
     border-radius: 8px;
     animation: slideIn .3s ease;
+    color: #7f1d1d !important;
 }
 
 .stWarning {
@@ -472,6 +559,7 @@ section[data-testid="stSidebar"] {
     border-left: 4px solid var(--warning-orange);
     border-radius: 8px;
     animation: slideIn .3s ease;
+    color: #78350f !important;
 }
 
 .stInfo {
@@ -479,6 +567,7 @@ section[data-testid="stSidebar"] {
     border-left: 4px solid var(--primary-blue);
     border-radius: 8px;
     animation: slideIn .3s ease;
+    color: #0f172a !important;
 }
 
 @keyframes slideIn {
@@ -515,6 +604,9 @@ section[data-testid="stSidebar"] {
 /* Selects and number inputs */
 select, input[type="number"], input[type="search"] { color: #0f172a !important; background:#ffffff !important; }
 select:focus, input[type="number"]:focus, input[type="search"]:focus { outline: 3px solid rgba(26,54,93,.25); }
+
+/* Ensure overlay is off by default in all views unless explicitly enabled */
+.vb-nav-overlay { opacity: 0 !important; pointer-events: none !important; }
 
 /* Expander styling */
 .streamlit-expanderHeader {
@@ -702,6 +794,26 @@ def inject_css():
     st.markdown(
         """
         <style>
+        /* Primary actions (global): ensure white text/icons on brand-blue buttons */
+        [data-testid="baseButton-primary"],
+        [data-testid="baseButton-primary"] *,
+        .stButton>button[kind="primary"],
+        .stButton>button[kind="primary"] * {
+            color: #ffffff !important;
+            fill: #ffffff !important;
+        }
+        /* Any Streamlit button using our dark-blue background should enforce white text for all descendants */
+        .stButton>button,
+        .stButton>button * {
+            color: #ffffff !important;
+            fill: #ffffff !important;
+        }
+        /* Disabled primary buttons keep readable contrast */
+        [data-testid="baseButton-primary"][disabled],
+        .stButton>button[kind="primary"]:disabled {
+            color: rgba(255,255,255,.85) !important;
+        }
+
         /* Global polish for link buttons */
         [data-testid="stLinkButton"] button,
         a[data-testid="stLinkButton"] {
@@ -724,30 +836,38 @@ def inject_css():
         }
         
         /* Color hierarchy for pricing */
-        section[data-testid="stSidebar"] button[key*="upgrade_btn"] {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        section[data-testid="stSidebar"] button[key*="upgrade_btn"],
+        section[data-testid="stSidebar"] button[key*="setup_"],
+        section[data-testid="stSidebar"] button[key*="pack_"],
+        section[data-testid="stSidebar"] button[key*="setup_"][key*="price_"],
+        section[data-testid="stSidebar"] button[key*="pack_"][key*="price_"] {
+            background: linear-gradient(135deg, var(--primary-blue) 0%, #0b2344 100%) !important;
             color: white !important;
+            border: none !important;
             font-weight: 700 !important;
         }
-        section[data-testid="stSidebar"] button[key*="setup_"] {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%) !important;
-            color: white !important;
-            border: none !important;
+        /* And ensure their inner spans/icons also stay white */
+        section[data-testid="stSidebar"] button[key*="upgrade_btn"] *,
+        section[data-testid="stSidebar"] button[key*="setup_"] *,
+        section[data-testid="stSidebar"] button[key*="pack_"] *,
+        section[data-testid="stSidebar"] button[key*="setup_"][key*="price_"] *,
+        section[data-testid="stSidebar"] button[key*="pack_"][key*="price_"] * {
+            color:#ffffff !important; fill:#ffffff !important;
         }
-        section[data-testid="stSidebar"] button[key*="pack_"] {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%) !important;
-            color: white !important;
+        /* Apply same treatment to payment link buttons (anchors) */
+        section[data-testid="stSidebar"] [data-testid="stLinkButton"] a,
+        section[data-testid="stSidebar"] a[data-testid="stLinkButton"] {
+            background: linear-gradient(135deg, var(--primary-blue) 0%, #0b2344 100%) !important;
+            color:#ffffff !important;
             border: none !important;
+            font-weight: 700 !important;
+            display: block !important;
+            text-align: center !important;
         }
-        section[data-testid="stSidebar"] button[key*="setup_"][key*="price_"] {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%) !important;
-            color: white !important;
-            border: none !important;
-        }
-        section[data-testid="stSidebar"] button[key*="pack_"][key*="price_"] {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%) !important;
-            color: white !important;
-            border: none !important;
+        /* Guarantee children inside link buttons are white too */
+        [data-testid="stLinkButton"] *,
+        section[data-testid="stSidebar"] [data-testid="stLinkButton"] * {
+            color:#ffffff !important; fill:#ffffff !important;
         }
         
         /* Compact the right column a bit and create breathing room between rows */
@@ -774,6 +894,28 @@ def pro_feature_list():
 - Advanced voice controls
 - 24/7 premium support
 """)
+
+def vb_stat_card(kind: str, value: str, label: str, sub: str = "") -> None:
+    """Render a branded stat card inside a Streamlit column.
+    kind: one of ['success','info','brand'] which maps to colorways.
+    value: main number/text
+    label: bold label line
+    sub: optional subtext line
+    """
+    kind = (kind or "info").lower()
+    cls = {
+        "success": "vb-stat vb-card vb-stat--success",
+        "brand": "vb-stat vb-card vb-stat--brand",
+        "info": "vb-stat vb-card vb-stat--info",
+    }.get(kind, "vb-stat vb-card vb-stat--info")
+    html = f'''<div class="{cls}">
+        <div>
+            <h2 class="vb-stat__value">{value}</h2>
+            <p class="vb-stat__label">{label}</p>
+            {f'<p class="vb-stat__sub">{sub}</p>' if sub else ''}
+        </div>
+    </div>'''
+    st.markdown(html, unsafe_allow_html=True)
 
 def render_steps(active:int, total:int):
     """Render phase dots without changing navigation logic.

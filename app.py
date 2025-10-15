@@ -116,19 +116,72 @@ def ensure_native_recorder_available() -> None:
     if _mic is not None:
         mic_recorder = _mic
 
-from auth import (
-    authenticate,
-    ensure_demo_user,
-    get_user,
-    get_free_usage,
-    increment_free_usage,
-    get_minutes_balance,
-    get_setup_credits,
-    get_user_by_email,
-    hash_backend_status,
-    init_db,
-    register_user,
-)
+AUTH_IMPORT_ERROR: Optional[Exception] = None
+try:
+    from auth import (
+        authenticate,
+        ensure_demo_user,
+        get_user,
+        get_free_usage,
+        increment_free_usage,
+        get_minutes_balance,
+        get_setup_credits,
+        get_user_by_email,
+        hash_backend_status,
+        init_db,
+        register_user,
+    )
+except Exception as _auth_err:  # Attempt self-heal (install passlib) then retry
+    AUTH_IMPORT_ERROR = _auth_err
+    try:
+        # Try installing passlib if missing; ignore result
+        _pip_install_if_missing(["passlib[bcrypt]>=1.7.4"])  # best effort
+        import importlib, importlib.util
+        mod = None
+        try:
+            # First, try importing by module name (may resolve to third-party 'auth')
+            mod = importlib.import_module("auth")
+        except Exception:
+            mod = None
+        # If imported module doesn't have expected attributes, try loading local file explicitly
+        if not mod or not hasattr(mod, "authenticate"):
+            auth_path = str(Path(__file__).parent / "auth.py")
+            spec = importlib.util.spec_from_file_location("vocalbrand_auth_local", auth_path)
+            if spec and spec.loader:
+                mod = importlib.util.module_from_spec(spec)
+                try:
+                    spec.loader.exec_module(mod)  # type: ignore[attr-defined]
+                except Exception:
+                    mod = None
+        if not mod:
+            raise ImportError("Failed to import local auth module")
+        authenticate = getattr(mod, "authenticate")  # type: ignore[misc]
+        ensure_demo_user = getattr(mod, "ensure_demo_user")  # type: ignore[misc]
+        get_user = getattr(mod, "get_user")  # type: ignore[misc]
+        get_free_usage = getattr(mod, "get_free_usage")  # type: ignore[misc]
+        increment_free_usage = getattr(mod, "increment_free_usage")  # type: ignore[misc]
+        get_minutes_balance = getattr(mod, "get_minutes_balance")  # type: ignore[misc]
+        get_setup_credits = getattr(mod, "get_setup_credits")  # type: ignore[misc]
+        get_user_by_email = getattr(mod, "get_user_by_email")  # type: ignore[misc]
+        hash_backend_status = getattr(mod, "hash_backend_status")  # type: ignore[misc]
+        init_db = getattr(mod, "init_db")  # type: ignore[misc]
+        register_user = getattr(mod, "register_user")  # type: ignore[misc]
+        AUTH_IMPORT_ERROR = None
+    except Exception as _auth_err2:  # Final fallback: define stubs which raise clear error on call
+        AUTH_IMPORT_ERROR = _auth_err2
+        def _fail(*_a, **_k):
+            raise RuntimeError(f"Auth module failed to import: {_auth_err2}")
+        authenticate = _fail  # type: ignore[assignment]
+        ensure_demo_user = lambda: None  # type: ignore[assignment]
+        get_user = _fail  # type: ignore[assignment]
+        get_free_usage = _fail  # type: ignore[assignment]
+        increment_free_usage = _fail  # type: ignore[assignment]
+        get_minutes_balance = _fail  # type: ignore[assignment]
+        get_setup_credits = _fail  # type: ignore[assignment]
+        get_user_by_email = _fail  # type: ignore[assignment]
+        hash_backend_status = _fail  # type: ignore[assignment]
+        init_db = lambda: None  # type: ignore[assignment]
+        register_user = _fail  # type: ignore[assignment]
 from engine import DEFAULT_MODEL_ID, DEFAULT_OUTPUT_FORMAT, VocalBrandEngine
 from payment import PaymentManager
 from utils.audio_utils import validate_audio_bytes, quality_score
@@ -1124,7 +1177,17 @@ def render_generation_section() -> None:
 
 
 def render_upgrade_section(container: Any) -> None:
-    container.markdown("### Upgrade to VocalBrand Pro")
+    # Branded upgrade banner
+    container.markdown(
+        """
+        <div class="vb-banner vb-banner--upgrade">
+            <div class="vb-banner__title">Upgrade to VocalBrand Pro</div>
+            <div class="vb-banner__sub">Unlimited generations • Priority processing • Commercial use</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    # Feature bullets (kept for clarity/SEO)
     container.markdown(
         """
         **Pro Features:**
@@ -1145,7 +1208,7 @@ def render_upgrade_section(container: Any) -> None:
     
     # Main subscription options
     container.markdown("---")
-    container.markdown("#### 💎 Subscription Plans")
+    container.markdown('<div class="vb-section-title">💎 Subscription Plans</div>', unsafe_allow_html=True)
     
     user_ref = f"user_{st.session_state['user_id']}"
     # Ensure annual_link is always defined for later checks
@@ -1153,7 +1216,8 @@ def render_upgrade_section(container: Any) -> None:
     
     # Monthly subscription (in-app checkout)
     with container.container():
-        container.markdown("**Monthly Pro** — Unlimited generations, cancel anytime")
+        container.markdown('<div class="vb-section-title" style="font-size:1.15rem;">Monthly Pro</div>', unsafe_allow_html=True)
+        container.caption("Unlimited generations, cancel anytime")
         if st.button("€29/mo", key="upgrade_btn_monthly", use_container_width=True):
             url, checkout_id = payment_manager.create_checkout_session(user_ref, plan="monthly")
             st.session_state["latest_checkout_id"] = checkout_id
@@ -1164,7 +1228,8 @@ def render_upgrade_section(container: Any) -> None:
     if payment_manager.price_id_annual:
         # Use in-app checkout with annual price ID
         with container.container():
-            container.markdown("**Annual Pro** — Save 17% (€290/year vs €348/year)")
+            container.markdown('<div class="vb-section-title" style="font-size:1.15rem;">Annual Pro</div>', unsafe_allow_html=True)
+            container.caption("Save 17% (€290/year vs €348/year)")
             if st.button("€290/yr", key="upgrade_btn_annual", use_container_width=True):
                 url, checkout_id = payment_manager.create_checkout_session(user_ref, plan="annual")
                 st.session_state["latest_checkout_id"] = checkout_id
@@ -1175,8 +1240,9 @@ def render_upgrade_section(container: Any) -> None:
         annual_link = os.getenv("ANNUAL_PAYMENT_LINK")
         if annual_link:
             with container.container():
-                container.markdown("**Annual Pro** — Save 17% (€290/year vs €348/year)")
-                st.link_button("€290/yr →", annual_link)
+                container.markdown('<div class="vb-section-title" style="font-size:1.15rem;">Annual Pro</div>', unsafe_allow_html=True)
+                container.caption("Save 17% (€290/year vs €348/year)")
+                st.link_button("€290/yr →", annual_link, type="primary")
                 container.markdown("")
     
     # One-time professional services
@@ -1188,12 +1254,13 @@ def render_upgrade_section(container: Any) -> None:
     
     if visible_setups:
         container.markdown("---")
-        container.markdown("#### 🚀 Professional Onboarding")
+        container.markdown('<div class="vb-section-title">🚀 Professional Onboarding</div>', unsafe_allow_html=True)
         container.caption("One-time guided setup services for teams and enterprises")
         
         for idx, (label, price, price_id, duration) in enumerate(visible_setups):
             with container.container():
-                container.markdown(f"**{label}** — {duration} guided setup & Q&A")
+                container.markdown(f'<div class="vb-section-title" style="font-size:1.05rem;">{label}</div>', unsafe_allow_html=True)
+                container.caption(f"{duration} guided setup & Q&A")
                 if st.button(f"{price} →", key=f"setup_{idx}_{price_id}", type="secondary", use_container_width=True):
                     url, checkout_id = payment_manager.create_checkout_session(user_ref, plan="setup", price_id=price_id, mode="payment")
                     st.session_state["latest_checkout_id"] = checkout_id
@@ -1221,12 +1288,12 @@ def render_upgrade_section(container: Any) -> None:
     
     if visible_packs:
         container.markdown("---")
-        container.markdown("#### ⚡ Additional Minutes Packs")
+        container.markdown('<div class="vb-section-title">⚡ Additional Minutes Packs</div>', unsafe_allow_html=True)
         container.caption("Premium voice minutes for professional use cases")
         
         for idx, (label, price, price_id) in enumerate(visible_packs):
             with container.container():
-                container.markdown(f"**Voice Minutes Pack {label}**")
+                container.markdown(f'<div class="vb-section-title" style="font-size:1.05rem;">Voice Minutes Pack {label}</div>', unsafe_allow_html=True)
                 if st.button(f"{price} →", key=f"pack_{idx}_{price_id}", use_container_width=True):
                     url, checkout_id = payment_manager.create_checkout_session(user_ref, plan="pack", price_id=price_id, mode="payment")
                     st.session_state["latest_checkout_id"] = checkout_id
@@ -1408,7 +1475,7 @@ def page_onboarding() -> None:
     """, unsafe_allow_html=True)
     
     # Quick start steps with visual indicators
-    st.markdown("### 🚀 Get Started in 4 Simple Steps")
+    st.markdown('<div class="vb-section-title">🚀 Get Started in 4 Simple Steps</div>', unsafe_allow_html=True)
     
     from utils.ui import render_steps
     render_steps(1, 4)  # Show we're on step 1 of 4
@@ -1462,47 +1529,26 @@ def page_onboarding() -> None:
     st.markdown("---")
     
     # Social proof and trust indicators
-    st.markdown("### 💎 Why VocalBrand Supreme?")
+    st.markdown('<div class="vb-section-title">💎 Why VocalBrand Supreme?</div>', unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        st.markdown("""
-        <div class="vb-card" style="background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); border-color: #10b981;">
-            <div style="text-align: center;">
-                <h2 style="color: #065f46; margin: 0; font-size: 2.5rem; font-weight: 700;">99.9%</h2>
-                <p style="color: #047857; font-weight: 600; margin: 0.5rem 0 0 0;">Uptime</p>
-                <p style="color: #059669; font-size: 0.85rem; margin: 0.25rem 0 0 0;">Enterprise-grade reliability</p>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        from utils.ui import vb_stat_card
+        vb_stat_card("success", "99.9%", "Uptime", "Enterprise-grade reliability")
     
     with col2:
-        st.markdown("""
-        <div class="vb-card" style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-color: #3b82f6;">
-            <div style="text-align: center;">
-                <h2 style="color: #1e40af; margin: 0; font-size: 2.5rem; font-weight: 700;">4</h2>
-                <p style="color: #1e3a8a; font-weight: 600; margin: 0.5rem 0 0 0;">Premium Voices</p>
-                <p style="color: #2563eb; font-size: 0.85rem; margin: 0.25rem 0 0 0;">Automatic fallback protection</p>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        from utils.ui import vb_stat_card
+        vb_stat_card("info", "4", "Premium Voices", "Automatic fallback protection")
     
     with col3:
-        st.markdown("""
-        <div class="vb-card" style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-color: #f59e0b;">
-            <div style="text-align: center;">
-                <h2 style="color: #92400e; margin: 0; font-size: 2.5rem; font-weight: 700;">&lt;1.2s</h2>
-                <p style="color: #b45309; font-weight: 600; margin: 0.5rem 0 0 0;">Average Latency</p>
-                <p style="color: #d97706; font-size: 0.85rem; margin: 0.25rem 0 0 0;">Lightning-fast generation</p>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        from utils.ui import vb_stat_card
+        vb_stat_card("brand", "<1.2s", "Average Latency", "Lightning-fast generation")
     
     st.markdown("---")
     
     # Use cases to inspire users
-    st.markdown("### 🎯 Perfect For")
+    st.markdown('<div class="vb-section-title">🎯 Perfect For</div>', unsafe_allow_html=True)
     
     col1, col2 = st.columns(2)
     
@@ -1899,6 +1945,19 @@ def main() -> None:
         inject_seo_meta()
     except Exception:
         pass
+    # If auth failed to import, stop early with a clear diagnostic
+    if AUTH_IMPORT_ERROR is not None:
+        st.error(
+            "Authentication module failed to import. This usually means a conflicting 'auth' package, missing passlib, or stale __pycache__.\n\n"
+            f"Root cause: {AUTH_IMPORT_ERROR}\n\n"
+            "Troubleshooting:\n"
+            "1) Ensure you're launching Streamlit from the project folder containing 'auth.py'.\n"
+            "2) Delete any __pycache__ folders.\n"
+            "3) Check that no folder or file elsewhere is named 'auth' shadowing this module.\n"
+            "4) Install required deps: passlib[bcrypt].\n\n"
+            "After fixing, restart the app."
+        )
+        return
     # Add visual-only, mobile-friendly sidebar opener
     try:
         inject_mobile_nav_helpers()
