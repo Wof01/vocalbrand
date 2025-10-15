@@ -48,6 +48,41 @@ code, pre, kbd, samp, strong, em {
     color: #0f172a !important; /* dark text everywhere */
 }
 
+/* Neutralize any residual dark surfaces from BaseWeb/Streamlit components */
+[data-baseweb], [data-testid], .st-emotion-cache { color-scheme: light !important; }
+[data-baseweb="select"] [role="combobox"],
+[data-baseweb="popover"],
+[data-baseweb="layer"],
+[data-baseweb="modal"] {
+    background: #ffffff !important;
+    color: #0f172a !important;
+}
+
+/* File Uploader dropzone — ensure light background and visible label */
+[data-testid="stFileUploader"] .uploadDropTarget,
+.stFileUploader .uploadDropTarget {
+    background: #e2e8f0 !important; /* light slate */
+    border: 2px dashed #94a3b8 !important;
+    color: #0f172a !important;
+}
+[data-testid="stFileUploader"] * { color: #0f172a !important; }
+
+/* Inputs (text/password) including icons/eye button */
+input[type="text"], input[type="email"], input[type="password"], textarea,
+[data-baseweb="input"] input {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border-color: #94a3b8 !important;
+}
+[data-baseweb="input"] svg, [data-baseweb="input"] button { color:#0f172a !important; }
+[data-baseweb="input"] button {
+    background: #ffffff !important;
+    border: 1px solid #94a3b8 !important;
+}
+
+/* Audio controls keep light track */
+audio { background: #ffffff !important; color-scheme: light !important; }
+
 /* Links use primary blue; hovered/active use gold for clear affordance */
 a, a:visited { color: var(--primary-blue) !important; }
 a:hover, a:focus { color: var(--accent-gold) !important; }

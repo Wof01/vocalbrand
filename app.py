@@ -546,7 +546,7 @@ SESSION_DEFAULTS: Dict[str, Any] = {
     "pending_audio_meta": {},
     "latest_checkout_id": None,
     # UX and automation toggles
-    "use_pro_recorder": False,  # Force built-in HTML5 recorder even if native present (gives live timer+waveform)
+    "use_pro_recorder": True,  # Force built-in HTML5 recorder even if native present (gives live timer+waveform)
     "trim_silence_toggle": False,  # If enabled, trim leading/trailing silence before cloning
     "auto_clone_toggle": False,  # If enabled, auto-clone immediately after recording lock-in
     "last_auto_clone_hash": "",  # To avoid double auto-clone on reruns
@@ -726,14 +726,26 @@ def render_audio_capture_area() -> None:
         if (container.dataset.vbInit === '1') return;
         container.dataset.vbInit = '1';
         container.innerHTML = `
-            <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
-                <button id="vb_start" style="padding:0.5rem 1rem;">🎙️ Start</button>
-                <button id="vb_stop" style="padding:0.5rem 1rem;" disabled>⏹️ Stop</button>
-                <span id="vb_status" style="font-size:0.85rem;color:#555;">Idle</span>
-                <span id="vb_level" style="font-size:0.75rem;color:#666;">Level: -- dB | 0.0s</span>
+            <style>
+              /* Scope styles to this component only */
+              #${rootId} .vbrec-toolbar { display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; }
+              #${rootId} .vbrec-btn { padding:0.55rem 1rem; border:none; border-radius:10px; font-weight:700; cursor:pointer; }
+              #${rootId} .vbrec-btn--start { background: linear-gradient(135deg,#1a365d 0%, #2d3748 100%); color:#fff; }
+              #${rootId} .vbrec-btn--stop { background:#ef4444; color:#fff; }
+              #${rootId} .vbrec-btn:disabled { opacity:.6; cursor:not-allowed; }
+              #${rootId} #vb_status { font-size:0.85rem; color:#334155; }
+              #${rootId} #vb_level { font-size:0.75rem; color:#475569; }
+              #${rootId} #vb_canvas { margin-top:4px; width:100%; height:64px; background:#e2e8f0; border-radius:8px; }
+              #${rootId} #vb_download_wrap a { color:#1a365d; font-weight:700; text-decoration:underline; }
+            </style>
+            <div class="vbrec-toolbar">
+                <button id="vb_start" class="vbrec-btn vbrec-btn--start">🎙️ Start</button>
+                <button id="vb_stop" class="vbrec-btn vbrec-btn--stop" disabled>⏹️ Stop</button>
+                <span id="vb_status">Idle</span>
+                <span id="vb_level">Level: -- dB | 0.0s</span>
             </div>
-            <canvas id="vb_canvas" width="600" height="64" style="margin-top:4px;width:100%;height:64px;background:#111;border-radius:4px;"></canvas>
-            <audio id="vb_play" controls style="margin-top:0.5rem;width:100%;display:none;"></audio>
+            <canvas id="vb_canvas" width="600" height="64"></canvas>
+            <audio id="vb_play" controls style="margin-top:0.5rem;width:100%;display:none;background:#ffffff;border-radius:8px;"></audio>
             <div id="vb_download_wrap" style="margin-top:0.25rem;display:none;"><a id="vb_download" download="vocalbrand_recording.webm">Download recording</a></div>
         `;
         const statusEl = container.querySelector('#vb_status');
@@ -763,8 +775,8 @@ def render_audio_capture_area() -> None:
             levelEl.textContent = `Level: ${db} dB | ${elapsed}s`;
             // Draw waveform
             const W = canvas.width, H = canvas.height;
-            ctx.fillStyle = '#111'; ctx.fillRect(0,0,W,H);
-            ctx.strokeStyle = '#2ee'; ctx.lineWidth = 2; ctx.beginPath();
+            ctx.fillStyle = '#e2e8f0'; ctx.fillRect(0,0,W,H);
+            ctx.strokeStyle = '#1a365d'; ctx.lineWidth = 2; ctx.beginPath();
             for(let x=0; x<W; x++){
                 const i = Math.floor(x / W * dataArray.length);
                 const v = (dataArray[i]-128)/128;
