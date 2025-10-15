@@ -23,6 +23,20 @@ SUPREME_CSS = """
 
 /* Make sure the outer container is also light (prevents dark rims) */
 [data-testid="stAppViewContainer"], html, body { background: #f8fafc !important; color-scheme: light !important; }
+/* Force light theme colors at root to defeat in-app browser dark-mode (e.g., Instagram/FB) */
+html, body, :root {
+    color-scheme: light !important;
+    --vb-bg: #ffffff; --vb-bg-2: #f1f5f9; --vb-text: #0f172a;
+    background: var(--vb-bg) !important;
+}
+/* Explicitly set sidebar and containers to light surfaces */
+[data-testid="stSidebar"], section[data-testid="stSidebar"] {
+    background: #ffffff !important; /* lock to light sidebar surface */
+    color: #0f172a !important;
+}
+.block-container, .stApp, [data-testid="stHeader"], [data-baseweb] {
+    color-scheme: light !important;
+}
 [data-testid="stHeader"] { background: #ffffff00 !important; }
 
 /* Global text color enforcement to fix faint/low-contrast text */
@@ -1043,6 +1057,42 @@ def inject_mobile_nav_helpers():
 <script>
 (function(){
     'use strict';
+    // Hard lock Streamlit UI to light theme across sessions and in-app browsers
+    try {
+        const KEY = `stActiveTheme-${window.location.pathname}-v1`;
+        // Remove any cached dark theme and set to Light
+        const store = window.localStorage;
+        if (store) {
+            const raw = store.getItem(KEY);
+            let needsSet = true;
+            if (raw) {
+                try { const parsed = JSON.parse(raw); needsSet = parsed?.name !== 'Light'; } catch {}
+            }
+            if (needsSet) {
+                store.setItem(KEY, JSON.stringify({ name: 'Light' }));
+            }
+            // Clean legacy key as well
+            const legacy = 'stActiveTheme';
+            const legacyRaw = store.getItem(legacy);
+            if (legacyRaw && legacyRaw.includes('Dark')) {
+                store.removeItem(legacy);
+            }
+        }
+        // Force prefers-color-scheme to light via meta tag (belt & braces)
+    const meta = document.querySelector('meta[name="color-scheme"]') || document.createElement('meta');
+    meta.setAttribute('name', 'color-scheme');
+    meta.setAttribute('content', 'light');
+    document.head.appendChild(meta);
+    // Also set theme-color for Android/Chrome in-app browsers
+    const themeMeta = document.querySelector('meta[name="theme-color"]') || document.createElement('meta');
+    themeMeta.setAttribute('name', 'theme-color');
+    themeMeta.setAttribute('content', '#ffffff');
+    document.head.appendChild(themeMeta);
+        // Also override if Streamlit exposes theme API
+        if (window.__streamlit && window.__streamlit.setTheme) {
+            window.__streamlit.setTheme('Light');
+        }
+    } catch (err) { console.warn('VocalBrand: theme lock failed', err); }
     
     // Configuration
     const MOBILE_BREAKPOINT = 992;
