@@ -53,31 +53,115 @@ code, pre, kbd, samp, strong, em {
 [data-baseweb="select"] [role="combobox"],
 [data-baseweb="popover"],
 [data-baseweb="layer"],
-[data-baseweb="modal"] {
+[data-baseweb="modal"],
+div[role="presentation"],
+[data-baseweb="tooltip"],
+.stTooltipIcon {
     background: #ffffff !important;
     color: #0f172a !important;
 }
+/* Expander/accordion elements */
+.streamlit-expanderHeader,
+[data-testid="stExpander"],
+details summary {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border: 1px solid #e2e8f0 !important;
+}
+/* Info boxes and alerts kept light */
+.stAlert, [data-baseweb="notification"] {
+    background: #eff6ff !important;
+    color: #0f172a !important;
+    border: 1px solid #93c5fd !important;
+}
 
 /* File Uploader dropzone — ensure light background and visible label */
+[data-testid="stFileUploader"],
+[data-testid="stFileUploader"] section,
 [data-testid="stFileUploader"] .uploadDropTarget,
+.stFileUploader,
+.stFileUploader section,
 .stFileUploader .uploadDropTarget {
     background: #e2e8f0 !important; /* light slate */
     border: 2px dashed #94a3b8 !important;
     color: #0f172a !important;
 }
-[data-testid="stFileUploader"] * { color: #0f172a !important; }
+[data-testid="stFileUploader"] *,
+.stFileUploader * { 
+    color: #0f172a !important; 
+    background: transparent !important;
+}
+/* Uploader button itself should be visible */
+[data-testid="stFileUploader"] button,
+.stFileUploader button {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border: 1px solid #94a3b8 !important;
+}
 
 /* Inputs (text/password) including icons/eye button */
 input[type="text"], input[type="email"], input[type="password"], textarea,
-[data-baseweb="input"] input {
+[data-baseweb="input"] input,
+.stTextInput input, .stTextArea textarea {
     background: #ffffff !important;
     color: #0f172a !important;
     border-color: #94a3b8 !important;
 }
-[data-baseweb="input"] svg, [data-baseweb="input"] button { color:#0f172a !important; }
-[data-baseweb="input"] button {
+[data-baseweb="input"] svg, [data-baseweb="input"] button { color:#0f172a !important; fill:#0f172a !important; }
+[data-baseweb="input"] button,
+[data-baseweb="input"] [role="button"] {
     background: #ffffff !important;
     border: 1px solid #94a3b8 !important;
+}
+/* Force all input wrappers light */
+[data-baseweb="input"], .stTextInput, .stTextArea, .stPasswordInput {
+    background: #ffffff !important;
+}
+
+/* Select/Dropdown components - force light backgrounds */
+[data-baseweb="select"],
+[data-baseweb="popover-inner"],
+.stSelectbox,
+select {
+    background: #ffffff !important;
+    color: #0f172a !important;
+}
+[data-baseweb="select"] > div,
+[data-baseweb="select"] [role="combobox"],
+[data-baseweb="select"] [role="button"] {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border-color: #94a3b8 !important;
+}
+/* Dropdown menu lists */
+[role="listbox"], [role="menu"], [data-baseweb="menu"] {
+    background: #ffffff !important;
+    color: #0f172a !important;
+}
+[role="option"], [role="menuitem"] {
+    background: #ffffff !important;
+    color: #0f172a !important;
+}
+[role="option"]:hover, [role="menuitem"]:hover {
+    background: #f1f5f9 !important;
+}
+
+/* Badges and chips - light styling */
+[data-baseweb="tag"],
+.stBadge, .badge, .chip,
+span[data-baseweb="tag"] {
+    background: #e2e8f0 !important;
+    color: #0f172a !important;
+    border: 1px solid #94a3b8 !important;
+    padding: 0.25rem 0.5rem !important;
+    border-radius: 6px !important;
+}
+
+/* Success/info badges and checkmarks */
+.badge-success, [data-baseweb="tag"].success {
+    background: #d1fae5 !important;
+    color: #065f46 !important;
+    border-color: #10b981 !important;
 }
 
 /* Audio controls keep light track */
@@ -133,6 +217,24 @@ a:hover, a:focus { color: var(--accent-gold) !important; }
 .stDownloadButton>button,
 .stFormSubmitButton>button {
     color:#ffffff !important;
+}
+/* Ensure form submit buttons match primary styling */
+.stFormSubmitButton>button,
+button[kind="formSubmit"],
+[data-testid="stFormSubmitButton"] button {
+    background: linear-gradient(135deg, var(--primary-blue) 0%, #2d3748 100%) !important;
+    color: #ffffff !important;
+    border: none !important;
+    padding: .75rem 2rem !important;
+    border-radius: 12px !important;
+    font-weight: 600 !important;
+}
+.stFormSubmitButton>button:hover,
+button[kind="formSubmit"]:hover,
+[data-testid="stFormSubmitButton"] button:hover {
+    background: linear-gradient(135deg, #2d3748 0%, var(--primary-blue) 100%) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(0,0,0,.2) !important;
 }
 /* Link buttons rendered as anchors */
 .stLinkButton a,
@@ -221,7 +323,11 @@ a:hover, a:focus { color: var(--accent-gold) !important; }
 /* BaseWeb and Streamlit tabs variants */
 div[data-testid="stTabs"] [role="tab"],
 .stTabs [role="tab"],
-div[data-baseweb="tab-list"] button { color: #0f172a !important; background: #e2e8f0 !important; border-radius: 10px !important; }
+div[data-baseweb="tab-list"] button { 
+    color: #0f172a !important; 
+    background: #e2e8f0 !important; 
+    border-radius: 10px !important;
+}
 div[data-testid="stTabs"] [role="tab"][aria-selected="true"],
 .stTabs [role="tab"][aria-selected="true"],
 div[data-baseweb="tab-list"] button[aria-selected="true"] {
@@ -239,6 +345,9 @@ div[data-baseweb="tab-list"] button:not([aria-selected="true"]) * { color:#0f172
 div[data-testid="stTabs"] [role="tab"]:focus,
 .stTabs [role="tab"]:focus,
 div[data-baseweb="tab-list"] button:focus { outline: 3px solid var(--accent-gold) !important; outline-offset: 2px; }
+
+/* Ensure tab panels/content stay light */
+[role="tabpanel"], .stTabs > div { background: #ffffff !important; }
 
 /* ===============================================
    MOBILE NAVIGATION - ROCK SOLID IMPLEMENTATION

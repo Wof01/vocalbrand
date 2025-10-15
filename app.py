@@ -1412,7 +1412,7 @@ def login_section() -> None:
         with st.form("login_form"):
             email = st.text_input("Email", key="login_email")
             password = st.text_input("Password", type="password", key="login_password")
-            submitted = st.form_submit_button("Sign in")
+            submitted = st.form_submit_button("Sign in", type="primary")
             if submitted:
                 ok, uid = authenticate(email, password)
                 if ok and uid:
@@ -1429,7 +1429,7 @@ def login_section() -> None:
         with st.form("register_form"):
             email = st.text_input("Work email", key="register_email")
             password = st.text_input("Password", type="password", key="register_password")
-            submitted = st.form_submit_button("Create account")
+            submitted = st.form_submit_button("Create account", type="primary")
             if submitted:
                 ok, message = register_user(email, password)
                 if ok:
