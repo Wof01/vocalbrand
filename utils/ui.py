@@ -11,6 +11,24 @@ SUPREME_CSS = """
     --success-green:#10b981;
     --error-red:#ef4444;
     --warning-orange:#f59e0b;
+    --light-slate:#e2e8f0;
+    --pure-white:#ffffff;
+    --dark-text:#0f172a;
+    --border-gray:#94a3b8;
+}
+
+/* ===============================
+   SUPREME LIGHT THEME ENFORCEMENT
+   Zero Dark Elements - Market Ready
+   =============================== */
+
+/* GLOBAL ROOT LIGHT THEME LOCK */
+html, body, :root {
+    color-scheme: light !important;
+    --vb-bg: var(--pure-white);
+    --vb-bg-2: #f1f5f9;
+    --vb-text: var(--dark-text);
+    background: var(--vb-bg) !important;
 }
 
 /* Accessible base theme — high contrast and brand colors */
@@ -18,38 +36,121 @@ SUPREME_CSS = """
 .main { 
     background: #f8fafc; /* very light slate for neutral contrast */
     font-family: 'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; 
-    color: #0f172a; /* slate-900 equivalent */
+    color: var(--dark-text); 
 }
 
 /* Make sure the outer container is also light (prevents dark rims) */
-[data-testid="stAppViewContainer"], html, body { background: #f8fafc !important; color-scheme: light !important; }
-/* Force light theme colors at root to defeat in-app browser dark-mode (e.g., Instagram/FB) */
-html, body, :root {
-    color-scheme: light !important;
-    --vb-bg: #ffffff; --vb-bg-2: #f1f5f9; --vb-text: #0f172a;
-    background: var(--vb-bg) !important;
+[data-testid="stAppViewContainer"], html, body { 
+    background: #f8fafc !important; 
+    color-scheme: light !important; 
 }
+
+/* Force light theme colors at root to defeat in-app browser dark-mode (e.g., Instagram/FB) */
 /* Explicitly set sidebar and containers to light surfaces */
 [data-testid="stSidebar"], section[data-testid="stSidebar"] {
-    background: #ffffff !important; /* lock to light sidebar surface */
-    color: #0f172a !important;
+    background: var(--pure-white) !important; 
+    color: var(--dark-text) !important;
 }
+
 .block-container, .stApp, [data-testid="stHeader"], [data-baseweb] {
     color-scheme: light !important;
 }
-[data-testid="stHeader"] { background: #ffffff00 !important; }
 
-/* Global text color enforcement to fix faint/low-contrast text */
+[data-testid="stHeader"] { 
+    background: #ffffff00 !important; 
+}
+
+/* Extra safety: keep all Streamlit panes and testid containers light */
+[data-testid="stAppViewContainer"],
+[data-testid^="st"],
+[data-baseweb] {
+    background: var(--pure-white) !important;
+    color: var(--dark-text) !important;
+}
+
+/* ===============================
+   GLOBAL TEXT COLOR ENFORCEMENT
+   Fix ALL faint/low-contrast text
+   =============================== */
 body, .stApp, .block-container,
 [data-testid="stMarkdownContainer"],
 h1, h2, h3, h4, h5, h6,
 p, li, label, span, div,
 code, pre, kbd, samp, strong, em {
-    color: #0f172a !important; /* dark text everywhere */
+    color: var(--dark-text) !important;
 }
 
-/* Neutralize any residual dark surfaces from BaseWeb/Streamlit components */
-[data-baseweb], [data-testid], .st-emotion-cache { color-scheme: light !important; }
+/* ===============================================
+   SURGICAL WHITE ARTIFACT ELIMINATION
+   Target Streamlit's default white boxes/borders
+   =============================================== */
+
+/* NUCLEAR: Remove ALL white boxes in sidebar */
+section[data-testid="stSidebar"] .element-container,
+section[data-testid="stSidebar"] .stMarkdown,
+section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"],
+section[data-testid="stSidebar"] > div > div {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+}
+
+/* Remove white boxes around markdown elements */
+[data-testid="stMarkdownContainer"],
+.element-container {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* Ensure sidebar itself has NO white boxes or weird padding */
+section[data-testid="stSidebar"] {
+    background: #ffffff !important;
+    border-right: 1px solid #e2e8f0 !important;
+    overflow-y: auto !important;
+    max-height: 100vh !important;
+    position: relative !important;
+}
+
+/* Ensure sidebar content wrapper allows scrolling */
+section[data-testid="stSidebar"] > div:first-child {
+    background: transparent !important;
+    border: none !important;
+    padding: 1rem !important;
+    min-height: 100% !important;
+    overflow-y: visible !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+/* Remove padding/margin artifacts on all sidebar children */
+section[data-testid="stSidebar"] * {
+    box-sizing: border-box !important;
+}
+
+/* Clean up any remaining white artifact boxes */
+[data-testid="stVerticalBlock"],
+[class*="css-"],
+.st-emotion-cache {
+    background: transparent !important;
+    border: none !important;
+}
+
+/* ===============================================
+   END WHITE ARTIFACT ELIMINATION
+   =============================================== */
+
+/* ===============================
+   BASEWEB & STREAMLIT COMPONENTS
+   Neutralize ALL dark surfaces
+   =============================== */
+[data-baseweb], [data-testid], .st-emotion-cache { 
+    color-scheme: light !important; 
+    background: var(--pure-white) !important;
+    color: var(--dark-text) !important;
+}
+
 [data-baseweb="select"] [role="combobox"],
 [data-baseweb="popover"],
 [data-baseweb="layer"],
@@ -57,115 +158,492 @@ code, pre, kbd, samp, strong, em {
 div[role="presentation"],
 [data-baseweb="tooltip"],
 .stTooltipIcon {
-    background: #ffffff !important;
-    color: #0f172a !important;
+    background: var(--pure-white) !important;
+    color: var(--dark-text) !important;
 }
+
 /* Expander/accordion elements */
 .streamlit-expanderHeader,
 [data-testid="stExpander"],
 details summary {
-    background: #ffffff !important;
-    color: #0f172a !important;
-    border: 1px solid #e2e8f0 !important;
+    background: var(--pure-white) !important;
+    color: var(--dark-text) !important;
+    border: 1px solid var(--light-slate) !important;
 }
+
+/* Expanded content areas */
+[data-testid="stExpander"] > div:last-child,
+details[open] {
+    background: var(--pure-white) !important;
+    color: var(--dark-text) !important;
+}
+
+/* Expander arrows: dark icons with rotate on expand */
+[data-testid="stExpander"] summary svg,
+.streamlit-expanderHeader svg {
+    color: var(--dark-text) !important;
+    transform: rotate(0deg) !important;
+    transition: transform .2s ease !important;
+}
+[data-testid="stExpander"][aria-expanded="true"] summary svg,
+.streamlit-expanderHeader[aria-expanded="true"] svg {
+    transform: rotate(90deg) !important;
+}
+
 /* Info boxes and alerts kept light */
 .stAlert, [data-baseweb="notification"] {
     background: #eff6ff !important;
-    color: #0f172a !important;
+    color: var(--dark-text) !important;
     border: 1px solid #93c5fd !important;
 }
 
-/* File Uploader dropzone — ensure light background and visible label */
+/* ===============================
+   FILE UPLOADER - LIGHT THEME
+   Ensure visible drop zone and labels
+   =============================== */
 [data-testid="stFileUploader"],
 [data-testid="stFileUploader"] section,
 [data-testid="stFileUploader"] .uploadDropTarget,
 .stFileUploader,
 .stFileUploader section,
 .stFileUploader .uploadDropTarget {
-    background: #e2e8f0 !important; /* light slate */
-    border: 2px dashed #94a3b8 !important;
-    color: #0f172a !important;
+    background: #f8fafc !important; /* Slightly off-white for visibility */
+    border: 3px dashed var(--primary-blue) !important; /* Thicker, brand-color border */
+    color: var(--dark-text) !important;
+    border-radius: 12px !important;
+    padding: 2rem !important;
+    transition: all 0.3s ease !important;
 }
+
+[data-testid="stFileUploader"]:hover,
+.stFileUploader:hover {
+    background: #eff6ff !important; /* Light blue tint on hover */
+    border-color: var(--accent-gold) !important;
+}
+
 [data-testid="stFileUploader"] *,
 .stFileUploader * { 
-    color: #0f172a !important; 
-    background: transparent !important;
+    color: var(--dark-text) !important; 
 }
-/* Uploader button itself should be visible */
+
+/* Uploader button itself - SUPREME VISIBILITY */
 [data-testid="stFileUploader"] button,
 .stFileUploader button {
-    background: #ffffff !important;
-    color: #0f172a !important;
-    border: 1px solid #94a3b8 !important;
+    background: var(--primary-blue) !important;
+    color: var(--pure-white) !important;
+    border: 2px solid var(--primary-blue) !important;
+    border-radius: 10px !important;
+    padding: 0.75rem 1.5rem !important;
+    font-weight: 600 !important;
+    font-size: 1rem !important;
+    transition: all 0.3s ease !important;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
+    cursor: pointer !important;
+    min-height: 44px !important;
+    /* CRITICAL: Force text rendering */
+    -webkit-font-smoothing: antialiased !important;
+    -moz-osx-font-smoothing: grayscale !important;
 }
 
-/* Inputs (text/password) including icons/eye button */
-input[type="text"], input[type="email"], input[type="password"], textarea,
-[data-baseweb="input"] input,
-.stTextInput input, .stTextArea textarea {
-    background: #ffffff !important;
-    color: #0f172a !important;
-    border-color: #94a3b8 !important;
+/* CRITICAL: All children of Browse button must be white */
+[data-testid="stFileUploader"] button *,
+.stFileUploader button * {
+    color: var(--pure-white) !important;
+    fill: var(--pure-white) !important;
+    -webkit-font-smoothing: antialiased !important;
 }
-[data-baseweb="input"] svg, [data-baseweb="input"] button { color:#0f172a !important; fill:#0f172a !important; }
+
+[data-testid="stFileUploader"] button:hover,
+.stFileUploader button:hover,
+button[kind="secondary"]:hover {
+    background: var(--accent-gold) !important;
+    border-color: var(--accent-gold) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 8px 12px rgba(0,0,0,0.15) !important;
+    color: var(--pure-white) !important;
+}
+
+/* Caret visible on light background */
+input, textarea { caret-color: var(--dark-text) !important; }
+
+/* File uploader label text - make it VERY visible */
+[data-testid="stFileUploader"] label,
+[data-testid="stFileUploader"] small,
+.stFileUploader label,
+.stFileUploader small {
+    color: var(--dark-text) !important;
+    font-weight: 600 !important;
+    font-size: 1rem !important;
+}
+
+/* ===============================
+   FORM INPUTS - PRISTINE WHITE
+   All text/email/password fields
+   =============================== */
+input[type="text"], 
+input[type="email"], 
+input[type="password"], 
+input[type="number"],
+input[type="search"],
+textarea,
+[data-baseweb="input"] input,
+.stTextInput input, 
+.stTextArea textarea,
+.stNumberInput input {
+    background: var(--pure-white) !important;
+    color: var(--dark-text) !important;
+    border: 2px solid var(--border-gray) !important;
+    border-radius: 8px !important;
+    padding: 0.5rem !important;
+    transition: all 0.2s ease !important;
+}
+
+/* Input focus states */
+input:focus, textarea:focus, select:focus {
+    border-color: var(--primary-blue) !important;
+    outline: none !important;
+    box-shadow: 0 0 0 3px rgba(26, 54, 93, 0.1) !important;
+}
+
+/* Input placeholders readable but subtle */
+input::placeholder,
+textarea::placeholder,
+.stTextInput input::placeholder,
+.stTextArea textarea::placeholder { 
+    color: #64748b !important; 
+    opacity: 1 !important;
+}
+
+/* Password visibility toggle (eye button) */
+[data-baseweb="input"] svg, 
+[data-baseweb="input"] button { 
+    color: var(--dark-text) !important; 
+    fill: var(--dark-text) !important; 
+}
+
 [data-baseweb="input"] button,
 [data-baseweb="input"] [role="button"] {
-    background: #ffffff !important;
-    border: 1px solid #94a3b8 !important;
-}
-/* Force all input wrappers light */
-[data-baseweb="input"], .stTextInput, .stTextArea, .stPasswordInput {
-    background: #ffffff !important;
+    background: var(--pure-white) !important;
+    border: 1px solid var(--border-gray) !important;
+    border-radius: 6px !important;
+    transition: all 0.2s ease !important;
 }
 
-/* Select/Dropdown components - force light backgrounds */
+[data-baseweb="input"] button:hover {
+    background: #f8fafc !important;
+    border-color: var(--primary-blue) !important;
+}
+
+/* Force all input wrappers light */
+[data-baseweb="input"], 
+.stTextInput, 
+.stTextArea, 
+.stPasswordInput,
+.stNumberInput {
+    background: var(--pure-white) !important;
+}
+
+/* ===============================
+   SELECT/DROPDOWN - LIGHT THEME
+   All dropdown components
+   =============================== */
 [data-baseweb="select"],
 [data-baseweb="popover-inner"],
 .stSelectbox,
 select {
-    background: #ffffff !important;
-    color: #0f172a !important;
+    background: var(--pure-white) !important;
+    color: var(--dark-text) !important;
+    border-radius: 8px !important;
 }
+
 [data-baseweb="select"] > div,
 [data-baseweb="select"] [role="combobox"],
 [data-baseweb="select"] [role="button"] {
-    background: #ffffff !important;
-    color: #0f172a !important;
-    border-color: #94a3b8 !important;
-}
-/* Dropdown menu lists */
-[role="listbox"], [role="menu"], [data-baseweb="menu"] {
-    background: #ffffff !important;
-    color: #0f172a !important;
-}
-[role="option"], [role="menuitem"] {
-    background: #ffffff !important;
-    color: #0f172a !important;
-}
-[role="option"]:hover, [role="menuitem"]:hover {
-    background: #f1f5f9 !important;
+    background: var(--pure-white) !important;
+    color: var(--dark-text) !important;
+    border: 2px solid var(--border-gray) !important;
+    border-radius: 8px !important;
 }
 
-/* Badges and chips - light styling */
+/* Dropdown menu lists */
+[role="listbox"], 
+[role="menu"], 
+[data-baseweb="menu"],
+[data-baseweb="popover"] {
+    background: var(--pure-white) !important;
+    color: var(--dark-text) !important;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1) !important;
+    border: 1px solid var(--light-slate) !important;
+}
+
+[role="option"], 
+[role="menuitem"] {
+    background: var(--pure-white) !important;
+    color: var(--dark-text) !important;
+    padding: 0.5rem 1rem !important;
+}
+
+[role="option"]:hover, 
+[role="menuitem"]:hover,
+[role="option"][aria-selected="true"] {
+    background: #f1f5f9 !important;
+    color: var(--primary-blue) !important;
+}
+
+/* ===============================
+   CHECKBOXES & RADIO BUTTONS
+   Light theme styling
+   =============================== */
+/* Checkbox styling */
+input[type="checkbox"],
+.stCheckbox input[type="checkbox"],
+[data-baseweb="checkbox"] {
+    background: var(--pure-white) !important;
+    border: 2px solid var(--border-gray) !important;
+    border-radius: 4px !important;
+    width: 20px !important;
+    height: 20px !important;
+    cursor: pointer !important;
+}
+
+input[type="checkbox"]:checked,
+.stCheckbox input[type="checkbox"]:checked {
+    background: var(--primary-blue) !important;
+    border-color: var(--primary-blue) !important;
+}
+
+input[type="checkbox"]:hover {
+    background: #dbeafe !important;
+    border-color: var(--primary-blue) !important;
+}
+
+/* Radio button styling */
+input[type="radio"],
+.stRadio input[type="radio"],
+[data-baseweb="radio"] {
+    background: var(--pure-white) !important;
+    border: 2px solid var(--border-gray) !important;
+    width: 20px !important;
+    height: 20px !important;
+    cursor: pointer !important;
+}
+
+input[type="radio"]:checked {
+    background: var(--primary-blue) !important;
+    border-color: var(--primary-blue) !important;
+}
+
+input[type="radio"]:hover {
+    background: #dbeafe !important;
+    border-color: var(--primary-blue) !important;
+}
+
+/* Radio/Checkbox labels */
+.stCheckbox,
+.stRadio:not(section[data-testid="stSidebar"] .stRadio),
+.stCheckbox label,
+.stRadio:not(section[data-testid="stSidebar"] .stRadio) label,
+[data-baseweb="checkbox"],
+[data-baseweb="radio"]:not(section[data-testid="stSidebar"] [data-baseweb="radio"]),
+[data-baseweb="checkbox"] + label,
+[data-baseweb="radio"]:not(section[data-testid="stSidebar"] [data-baseweb="radio"]) + label {
+    color: var(--dark-text) !important;
+    font-weight: 500 !important;
+    margin-left: 0 !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    margin-bottom: 0.75rem !important;
+    white-space: nowrap !important;
+    word-wrap: normal !important;
+}
+
+/* Ensure checkbox/radio containers don't force column layout */
+.stCheckbox > div,
+.stRadio:not(section[data-testid="stSidebar"] .stRadio) > div {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    flex-wrap: nowrap !important;
+}
+
+/* Ensure checkbox/radio text content flows horizontally */
+.stCheckbox label > div,
+.stCheckbox label > span,
+.stRadio:not(section[data-testid="stSidebar"] .stRadio) label > div,
+.stRadio:not(section[data-testid="stSidebar"] .stRadio) label > span {
+    display: inline-block !important;
+    white-space: nowrap !important;
+    line-height: 1.5 !important;
+    vertical-align: middle !important;
+}
+
+/* Ensure radio buttons in sidebar navigation are properly visible - NO WHITE ARTIFACTS */
+section[data-testid="stSidebar"] .stRadio,
+section[data-testid="stSidebar"] .stRadio > div,
+section[data-testid="stSidebar"] [role="radiogroup"] {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.75rem !important;
+    width: 100% !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    margin-bottom: 1rem !important;
+    background: transparent !important;
+}
+
+/* Remove ALL white backgrounds from navigation containers */
+section[data-testid="stSidebar"] .stRadio *,
+section[data-testid="stSidebar"] [role="radiogroup"] *,
+section[data-testid="stSidebar"] .stRadio > div > div,
+section[data-testid="stSidebar"] [role="radiogroup"] > div {
+    background-color: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
+}
+
+/* Add Navigation section header styling */
+section[data-testid="stSidebar"] .stRadio > label:first-child,
+section[data-testid="stSidebar"] [role="radiogroup"] > div:first-child {
+    font-weight: 700 !important;
+    font-size: 1.1rem !important;
+    color: var(--dark-text) !important;
+    margin-bottom: 0.75rem !important;
+    padding-bottom: 0.5rem !important;
+    border-bottom: 2px solid var(--light-slate) !important;
+    display: block !important;
+}
+
+/* Radio button items should stack vertically with proper spacing - TRANSPARENT BY DEFAULT */
+section[data-testid="stSidebar"] .stRadio label,
+section[data-testid="stSidebar"] [role="radio"] {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    padding: 0.75rem 0.5rem !important;
+    border-radius: 8px !important;
+    transition: all 0.2s ease !important;
+    cursor: pointer !important;
+    white-space: normal !important;
+    word-wrap: break-word !important;
+    font-size: 0.95rem !important;
+    font-weight: 500 !important;
+    color: var(--dark-text) !important;
+    min-height: 2.5rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    position: relative !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    background-image: none !important;
+}
+
+/* Ensure label text content is properly contained */
+section[data-testid="stSidebar"] .stRadio label > div,
+section[data-testid="stSidebar"] .stRadio label > span,
+section[data-testid="stSidebar"] [role="radio"] > div,
+section[data-testid="stSidebar"] [role="radio"] > span {
+    flex: 1 !important;
+    display: inline-block !important;
+    line-height: 1.4 !important;
+    color: var(--dark-text) !important;
+}
+
+section[data-testid="stSidebar"] .stRadio label:hover,
+section[data-testid="stSidebar"] [role="radio"]:hover {
+    background: rgba(26, 54, 93, 0.08) !important;
+    transform: translateX(2px) !important;
+}
+
+/* Highlight selected radio option */
+section[data-testid="stSidebar"] .stRadio label:has(input:checked),
+section[data-testid="stSidebar"] [role="radio"][aria-checked="true"] {
+    background: linear-gradient(135deg, rgba(26, 54, 93, 0.1) 0%, rgba(26, 54, 93, 0.05) 100%) !important;
+    border-left: 3px solid var(--primary-blue) !important;
+    font-weight: 600 !important;
+}
+
+/* Ensure radio input is visible and styled */
+section[data-testid="stSidebar"] .stRadio input[type="radio"],
+section[data-testid="stSidebar"] [role="radio"] input {
+    flex-shrink: 0 !important;
+    margin-right: 0.75rem !important;
+    width: 20px !important;
+    height: 20px !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    accent-color: var(--primary-blue) !important;
+    position: relative !important;
+    z-index: 1 !important;
+}
+
+/* ===============================
+   BADGES & CHIPS - LIGHT DESIGN
+   Elegant status indicators
+   =============================== */
 [data-baseweb="tag"],
 .stBadge, .badge, .chip,
 span[data-baseweb="tag"] {
-    background: #e2e8f0 !important;
-    color: #0f172a !important;
-    border: 1px solid #94a3b8 !important;
-    padding: 0.25rem 0.5rem !important;
-    border-radius: 6px !important;
+    background: var(--light-slate) !important;
+    color: var(--dark-text) !important;
+    border: 1px solid var(--border-gray) !important;
+    padding: 0.25rem 0.75rem !important;
+    border-radius: 12px !important;
+    font-weight: 600 !important;
+    font-size: 0.875rem !important;
 }
 
 /* Success/info badges and checkmarks */
-.badge-success, [data-baseweb="tag"].success {
+.badge-success, 
+[data-baseweb="tag"].success,
+.vb-chip.ok {
     background: #d1fae5 !important;
     color: #065f46 !important;
-    border-color: #10b981 !important;
+    border-color: var(--success-green) !important;
 }
 
-/* Audio controls keep light track */
-audio { background: #ffffff !important; color-scheme: light !important; }
+.badge-info,
+.vb-chip.info {
+    background: #dbeafe !important;
+    color: #1e40af !important;
+    border-color: var(--primary-blue) !important;
+}
+
+.vb-chip.warn {
+    background: #fef3c7 !important;
+    color: #92400e !important;
+    border-color: var(--warning-orange) !important;
+}
+
+.vb-chip.err {
+    background: #fee2e2 !important;
+    color: #991b1b !important;
+    border-color: var(--error-red) !important;
+}
+
+/* ===============================
+   AUDIO CONTROLS - LIGHT THEME
+   Remove ALL dark native UI
+   =============================== */
+audio, 
+audio::-webkit-media-controls-panel,
+audio::-webkit-media-controls-enclosure {
+    background: var(--pure-white) !important;
+    color-scheme: light !important;
+    border-radius: 8px !important;
+    border: 1px solid var(--light-slate) !important;
+}
+
+/* Ensure audio control buttons are visible */
+audio::-webkit-media-controls-play-button,
+audio::-webkit-media-controls-pause-button,
+audio::-webkit-media-controls-mute-button,
+audio::-webkit-media-controls-volume-slider {
+    filter: none !important;
+    opacity: 1 !important;
+}
 
 /* Links use primary blue; hovered/active use gold for clear affordance */
 a, a:visited { color: var(--primary-blue) !important; }
@@ -180,76 +658,335 @@ a:hover, a:focus { color: var(--accent-gold) !important; }
     min-height:90vh; 
 }
 
-/* Primary buttons with hover effects */
-.stButton>button { 
-    background:linear-gradient(135deg,var(--primary-blue) 0%, #2d3748 100%); 
-    color:#ffffff !important; /* Ensure white text for maximum contrast on blue */
-    border:none; 
-    padding:.75rem 2rem; 
-    border-radius:12px; 
-    font-weight:600; 
-    font-size:1rem; 
-    transition:all .3s ease; 
-    box-shadow:0 4px 6px -1px rgba(0,0,0,.1);
-    min-height:44px; /* Touch-friendly */
-}
+/* ===============================================
+   PRO RECORDER - COMPLETE LIGHT THEME
+   Canvas, controls, and download elements
+   =============================================== */
 
-.stButton>button:hover { 
-    transform:translateY(-2px); 
-    box-shadow:0 10px 15px -3px rgba(0,0,0,.2); 
-    background:linear-gradient(135deg,#2d3748 0%, var(--primary-blue) 100%);
-    color:#ffffff !important; /* Preserve white text on hover */
-}
-
-.stButton>button:active {
-    transform:translateY(0);
-    box-shadow:0 4px 6px -1px rgba(0,0,0,.1);
-}
-/* Disabled primary buttons should still use white text for legibility */
-.stButton>button:disabled, .stButton>button[disabled] {
-    color:#ffffff !important; opacity:.6;
-}
-
-/* Ensure icons within buttons are visible on dark backgrounds */
-.stButton>button svg { color:#ffffff !important; fill:#ffffff !important; }
-
-/* Apply consistent white text to other Streamlit button variants */
-.stDownloadButton>button,
-.stFormSubmitButton>button {
-    color:#ffffff !important;
-}
-/* Ensure form submit buttons match primary styling */
-.stFormSubmitButton>button,
-button[kind="formSubmit"],
-[data-testid="stFormSubmitButton"] button {
-    background: linear-gradient(135deg, var(--primary-blue) 0%, #2d3748 100%) !important;
-    color: #ffffff !important;
-    border: none !important;
-    padding: .75rem 2rem !important;
+/* Recorder container - light background */
+#vb_container,
+.vb-recorder-container {
+    background: var(--pure-white) !important;
+    border: 1px solid var(--light-slate) !important;
     border-radius: 12px !important;
+    padding: 1.5rem !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05) !important;
+}
+
+/* Control buttons styling */
+#vb_controls,
+.vb-recorder-controls {
+    display: flex !important;
+    gap: 0.75rem !important;
+    margin: 1rem 0 !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+/* Start recording button - brand blue with white text */
+#vb_start,
+button[id*="start"],
+.vb-btn-start {
+    background: linear-gradient(135deg, var(--primary-blue) 0%, #2d3748 100%) !important;
+    color: var(--pure-white) !important;
+    border: none !important;
+    border-radius: 10px !important;
+    padding: 0.75rem 1.5rem !important;
     font-weight: 600 !important;
+    font-size: 1rem !important;
+    cursor: pointer !important;
+    transition: all 0.3s ease !important;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
+    min-width: 140px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.5rem !important;
 }
-.stFormSubmitButton>button:hover,
-button[kind="formSubmit"]:hover,
-[data-testid="stFormSubmitButton"] button:hover {
+
+#vb_start:hover {
     background: linear-gradient(135deg, #2d3748 0%, var(--primary-blue) 100%) !important;
-    transform: translateY(-2px);
-    box-shadow: 0 10px 15px -3px rgba(0,0,0,.2) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 8px 12px rgba(0,0,0,0.15) !important;
 }
+
+#vb_start:disabled {
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+}
+
+/* Stop recording button - red with white text */
+#vb_stop,
+button[id*="stop"],
+.vb-btn-stop {
+    background: linear-gradient(135deg, var(--error-red) 0%, #dc2626 100%) !important;
+    color: var(--pure-white) !important;
+    border: none !important;
+    border-radius: 10px !important;
+    padding: 0.75rem 1.5rem !important;
+    font-weight: 600 !important;
+    font-size: 1rem !important;
+    cursor: pointer !important;
+    transition: all 0.3s ease !important;
+    box-shadow: 0 4px 6px rgba(239, 68, 68, 0.2) !important;
+    min-width: 140px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.5rem !important;
+}
+
+#vb_stop:hover {
+    background: linear-gradient(135deg, #dc2626 0%, var(--error-red) 100%) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 8px 12px rgba(239, 68, 68, 0.3) !important;
+}
+
+#vb_stop:disabled {
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+}
+
+/* Status and level text - dark readable text */
+#vb_status,
+#vb_level,
+.vb-recorder-status,
+.vb-recorder-level {
+    color: var(--dark-text) !important;
+    font-weight: 600 !important;
+    font-size: 0.95rem !important;
+    padding: 0.5rem !important;
+    background: #f8fafc !important;
+    border-radius: 8px !important;
+    margin: 0.5rem 0 !important;
+    text-align: center !important;
+}
+
+/* Waveform canvas - light background */
+#vb_canvas,
+canvas[id*="canvas"],
+.vb-waveform-canvas {
+    background: var(--light-slate) !important;
+    border: 2px solid #cbd5e1 !important;
+    border-radius: 8px !important;
+    width: 100% !important;
+    height: auto !important;
+    max-width: 100% !important;
+    margin: 1rem 0 !important;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.05) !important;
+}
+
+/* Audio playback element - light theme */
+#vb_play,
+audio[id*="play"],
+.vb-audio-player {
+    background: var(--pure-white) !important;
+    border: 1px solid var(--light-slate) !important;
+    border-radius: 8px !important;
+    width: 100% !important;
+    margin: 1rem 0 !important;
+    padding: 0.5rem !important;
+    color-scheme: light !important;
+}
+
+/* Download link styling - prominent and light */
+#vb_download_wrap,
+.vb-download-wrapper {
+    text-align: center !important;
+    margin: 1rem 0 !important;
+}
+
+#vb_download,
+a[id*="download"],
+.vb-download-link {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    background: var(--light-slate) !important;
+    color: var(--primary-blue) !important;
+    padding: 0.75rem 1.5rem !important;
+    border-radius: 10px !important;
+    text-decoration: none !important;
+    font-weight: 600 !important;
+    border: 2px solid var(--border-gray) !important;
+    transition: all 0.3s ease !important;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05) !important;
+}
+
+#vb_download:hover,
+a[id*="download"]:hover,
+.vb-download-link:hover {
+    background: #cbd5e1 !important;
+    border-color: var(--primary-blue) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+    color: var(--primary-blue) !important;
+}
+
+/* Ensure recorder iframe backgrounds are light */
+iframe[title*="recorder"],
+iframe[src*="component"] {
+    background: var(--pure-white) !important;
+    border: none !important;
+    border-radius: 12px !important;
+}
+
+}
+
+/* Explicit labels that must always be white on blue */
+[data-testid="stFormSubmitButton"] button span:where(:not(:empty)),
+[data-testid="stButton"] button span:where(:not(:empty)) {
+    color: var(--pure-white) !important;
+}
+
+/* ===============================
+   DOWNLOAD & LINK BUTTONS
+   Consistent white text on brand buttons
+   =============================== */
+.stDownloadButton>button {
+    color: var(--dark-text) !important;
+    background: var(--light-slate) !important;
+    border: 2px solid var(--border-gray) !important;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.06) !important;
+}
+
+.stDownloadButton>button * {
+    color: var(--dark-text) !important;
+    fill: var(--dark-text) !important;
+}
+
 /* Link buttons rendered as anchors */
 .stLinkButton a,
 .stLinkButton>a,
 .stLinkButton button,
 .stLinkButton [data-testid="baseButton-primary"] {
-    color:#ffffff !important;
+    color: var(--pure-white) !important;
+    text-decoration: none !important;
 }
-[data-testid="stLinkButton"] a { color:#ffffff !important; }
 
-/* Streamlit's new unified base button test id — enforce white text for primary buttons */
-[data-testid="baseButton-primary"] { color:#ffffff !important; }
-[data-testid="baseButton-primary"] svg { color:#ffffff !important; fill:#ffffff !important; }
-[data-testid="baseButton-primary"][aria-disabled="true"] { color:#ffffff !important; opacity:.6; }
-[data-testid="baseButton-primary"] * { color:#ffffff !important; fill:#ffffff !important; }
+[data-testid="stLinkButton"] a { 
+    color: var(--pure-white) !important; 
+}
+
+/* ===============================
+   BASE BUTTON - STREAMLIT UNIFIED
+   Enforce white text for primary variants
+   =============================== */
+[data-testid="baseButton-primary"],
+[data-testid="baseButton-primary"] * { 
+    color: var(--pure-white) !important; 
+    fill: var(--pure-white) !important;
+}
+
+[data-testid="baseButton-primary"],
+[data-testid="baseButton-primary"] button,
+[data-testid="stFormSubmitButton"] button,
+.stButton>button,
+button[data-testid="baseButton-primary"],
+button[kind="primary"] {
+    background: linear-gradient(135deg, var(--primary-blue) 0%, #0b2344 100%) !important;
+    color: var(--pure-white) !important;
+    border: none !important;
+    border-radius: 12px !important;
+    padding: 0.85rem 2.4rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.01em !important;
+    box-shadow: 0 12px 24px rgba(26, 54, 93, 0.28) !important;
+    transition: all 0.25s ease !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.5rem !important;
+    min-height: 3.1rem !important;
+    position: relative !important;
+    overflow: hidden !important;
+}
+
+/* Eliminate white inner rectangle artifacts */
+[data-testid="baseButton-primary"] > div,
+[data-testid="baseButton-primary"] button > div,
+[data-testid="stFormSubmitButton"] button > div,
+.stButton>button > div,
+button[data-testid="baseButton-primary"] > div,
+button[kind="primary"] > div,
+[data-testid="baseButton-primary"] > div > div,
+[data-testid="baseButton-primary"] button > div > div,
+[data-testid="stFormSubmitButton"] button > div > div,
+.stButton>button > div > div,
+button[data-testid="baseButton-primary"] > div > div,
+button[kind="primary"] > div > div {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+/* Ensure all inner content inherits white text */
+[data-testid="baseButton-primary"] *,
+[data-testid="baseButton-primary"] button *,
+[data-testid="stFormSubmitButton"] button *,
+.stButton>button *,
+button[data-testid="baseButton-primary"] *,
+button[kind="primary"] * {
+    color: var(--pure-white) !important;
+    fill: var(--pure-white) !important;
+    background: transparent !important;
+}
+
+[data-testid="baseButton-primary"] button:hover,
+.stButton>button:hover,
+button[data-testid="baseButton-primary"]:hover,
+button[kind="primary"]:hover {
+    transform: translateY(-2px) scale(1.01) !important;
+    box-shadow: 0 16px 32px rgba(26, 54, 93, 0.32) !important;
+    background: linear-gradient(135deg, #0b2344 0%, var(--primary-blue) 100%) !important;
+}
+
+[data-testid="baseButton-primary"][aria-disabled="true"],
+[data-testid="baseButton-primary"][aria-disabled="true"] button,
+.stButton>button:disabled,
+button[data-testid="baseButton-primary"]:disabled,
+button[kind="primary"]:disabled {
+    background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%) !important;
+    box-shadow: none !important;
+    opacity: 0.8 !important;
+    transform: none !important;
+    cursor: not-allowed !important;
+}
+
+[data-testid="baseButton-primary"] svg,
+[data-testid="baseButton-primary"] path { 
+    color: var(--pure-white) !important; 
+    fill: var(--pure-white) !important; 
+}
+
+[data-testid="baseButton-primary"][aria-disabled="true"],
+[data-testid="baseButton-primary"][aria-disabled="true"] * { 
+    color: var(--pure-white) !important; 
+    opacity: 0.6 !important; 
+}
+
+/* Secondary buttons - light style with dark text */
+[data-testid="baseButton-secondary"],
+button[kind="secondary"] {
+    background: var(--pure-white) !important;
+    color: var(--primary-blue) !important;
+    border: 2px solid var(--primary-blue) !important;
+    border-radius: 12px !important;
+    padding: 0.75rem 2rem !important;
+    font-weight: 600 !important;
+    transition: all 0.3s ease !important;
+}
+
+[data-testid="baseButton-secondary"]:hover,
+button[kind="secondary"]:hover {
+    background: #f8fafc !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+}
 
 /* Premium cards */
 .premium-card { 
@@ -319,35 +1056,126 @@ button[kind="formSubmit"]:hover,
 .vb-banner--upgrade .vb-banner__title { font-weight:800; font-size:1.2rem; }
 .vb-banner--upgrade .vb-banner__sub { opacity:.9; }
 
-/* Tabs — ensure clear selected state and readable labels */
-/* BaseWeb and Streamlit tabs variants */
+/* ===============================
+   TABS - CLEAR SELECTION STATE
+   Readable labels with visible active state
+   =============================== */
 div[data-testid="stTabs"] [role="tab"],
 .stTabs [role="tab"],
-div[data-baseweb="tab-list"] button { 
-    color: #0f172a !important; 
-    background: #e2e8f0 !important; 
-    border-radius: 10px !important;
+div[data-baseweb="tab-list"] button,
+[data-baseweb="tab"] button { 
+    color: var(--dark-text) !important; 
+    background: linear-gradient(135deg, rgba(226,232,240,0.95) 0%, rgba(203,213,225,0.95) 100%) !important; 
+    border-radius: 12px !important;
+    padding: 0.75rem 1.5rem !important;
+    font-weight: 600 !important;
+    border: none !important;
+    transition: all 0.2s ease !important;
+    margin: 0 0.25rem !important;
+    position: relative !important;
+    overflow: hidden !important;
 }
+
+/* Unselected tab hover state */
+div[data-testid="stTabs"] [role="tab"]:hover,
+.stTabs [role="tab"]:hover,
+div[data-baseweb="tab-list"] button:hover {
+    background: linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%) !important;
+    transform: translateY(-1px) !important;
+}
+
+/* Selected tab - brand blue background with white text */
 div[data-testid="stTabs"] [role="tab"][aria-selected="true"],
 .stTabs [role="tab"][aria-selected="true"],
-div[data-baseweb="tab-list"] button[aria-selected="true"] {
-    background: var(--primary-blue) !important;
-    color: #ffffff !important;
+div[data-baseweb="tab-list"] button[aria-selected="true"],
+[data-baseweb="tab"] button[aria-selected="true"] {
+    background: linear-gradient(135deg, var(--primary-blue) 0%, #0b2344 100%) !important;
+    color: var(--pure-white) !important;
+    border: none !important;
+    box-shadow: 0 4px 12px rgba(26, 54, 93, 0.25) !important;
 }
-/* Ensure inner text inside selected tabs is white */
+
+/* Remove white BaseWeb highlight slider and internal wrappers */
+div[data-testid="stTabs"] [data-baseweb="tab-highlight"],
+[data-baseweb="tab-highlight"] {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+div[data-testid="stTabs"] > div:first-child,
+div[data-testid="stTabs"] > div:first-child > div,
+div[data-testid="stTabs"] > div:first-child > div > div,
+div[data-testid="stTabs"] > div:first-child > div > div > div,
+[data-baseweb="tab-list"],
+[data-baseweb="tab-list"] > div,
+[data-baseweb="tab-list"] > div > div {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+div[data-testid="stTabs"] [role="tab"]::before,
+div[data-testid="stTabs"] [role="tab"]::after,
+.stTabs [role="tab"]::before,
+.stTabs [role="tab"]::after,
+div[data-baseweb="tab"] button::before,
+div[data-baseweb="tab"] button::after {
+    display: none !important;
+}
+
+div[data-testid="stTabs"] [role="tab"] > div,
+div[data-testid="stTabs"] [role="tab"] > div > div,
+.stTabs [role="tab"] > div,
+.stTabs [role="tab"] > div > div,
+div[data-baseweb="tab"] button > div,
+div[data-baseweb="tab"] button > div > div {
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+div[data-testid="stTabs"] [role="tab"][aria-selected="true"] > div,
+div[data-testid="stTabs"] [role="tab"][aria-selected="true"] > div > div,
+.stTabs [role="tab"][aria-selected="true"] > div,
+.stTabs [role="tab"][aria-selected="true"] > div > div,
+div[data-baseweb="tab"] button[aria-selected="true"] > div,
+div[data-baseweb="tab"] button[aria-selected="true"] > div > div {
+    color: var(--pure-white) !important;
+}
+
+/* Ensure inner text/icons in selected tabs are white */
 .stTabs [role="tab"][aria-selected="true"] *,
 div[data-testid="stTabs"] [role="tab"][aria-selected="true"] *,
-div[data-baseweb="tab-list"] button[aria-selected="true"] * { color:#ffffff !important; fill:#ffffff !important; }
+div[data-baseweb="tab-list"] button[aria-selected="true"] *,
+[data-baseweb="tab"] button[aria-selected="true"] * { 
+    color: var(--pure-white) !important; 
+    fill: var(--pure-white) !important; 
+}
+
 /* Ensure unselected tabs use dark readable text */
 .stTabs [role="tab"]:not([aria-selected="true"]) *,
 div[data-testid="stTabs"] [role="tab"]:not([aria-selected="true"]) *,
-div[data-baseweb="tab-list"] button:not([aria-selected="true"]) * { color:#0f172a !important; }
+div[data-baseweb="tab-list"] button:not([aria-selected="true"]) * { 
+    color: var(--dark-text) !important; 
+}
+
+/* Tab focus state for accessibility */
 div[data-testid="stTabs"] [role="tab"]:focus,
 .stTabs [role="tab"]:focus,
-div[data-baseweb="tab-list"] button:focus { outline: 3px solid var(--accent-gold) !important; outline-offset: 2px; }
+div[data-baseweb="tab-list"] button:focus { 
+    outline: 3px solid var(--accent-gold) !important; 
+    outline-offset: 2px !important; 
+}
 
 /* Ensure tab panels/content stay light */
-[role="tabpanel"], .stTabs > div { background: #ffffff !important; }
+[role="tabpanel"], 
+.stTabs > div,
+div[data-testid="stTabs"] > div > div { 
+    background: var(--pure-white) !important; 
+    color: var(--dark-text) !important;
+    padding: 1.5rem !important;
+    border-radius: 12px !important;
+}
 
 /* ===============================================
    MOBILE NAVIGATION - ROCK SOLID IMPLEMENTATION
@@ -676,8 +1504,37 @@ div[data-baseweb="tab-list"] button:focus { outline: 3px solid var(--accent-gold
 }
 
 /* Sidebar polish */
+section[data-testid="stSidebar"] .stButton,
 section[data-testid="stSidebar"] .stButton>button { 
+    visibility: visible !important;
+    opacity: 1 !important;
+    display: block !important;
     width: 100%; 
+    background: linear-gradient(135deg, var(--primary-blue) 0%, #0b2344 100%) !important;
+    color: var(--pure-white) !important;
+    border: none !important;
+    border-radius: 12px !important;
+    padding: 0.85rem 1.5rem !important;
+    font-weight: 700 !important;
+    box-shadow: 0 8px 16px rgba(26, 54, 93, 0.2) !important;
+    transition: all 0.25s ease !important;
+    text-align: center !important;
+    cursor: pointer !important;
+}
+
+section[data-testid="stSidebar"] .stButton>button:hover { 
+    transform: translateY(-2px) scale(1.01) !important;
+    box-shadow: 0 12px 20px rgba(26, 54, 93, 0.28) !important;
+    background: linear-gradient(135deg, #0b2344 0%, var(--primary-blue) 100%) !important;
+}
+
+section[data-testid="stSidebar"] .stButton>button *,
+section[data-testid="stSidebar"] .stButton>button span,
+section[data-testid="stSidebar"] .stButton>button div,
+section[data-testid="stSidebar"] .stButton>button p {
+    color: var(--pure-white) !important;
+    visibility: visible !important;
+    opacity: 1 !important;
 }
 
 section[data-testid="stSidebar"] img { 
@@ -696,36 +1553,64 @@ section[data-testid="stSidebar"] {
 }
 
 /* Success/Error message styling */
-.stSuccess {
-    background: linear-gradient(90deg, #ecfdf5 0%, #d1fae5 100%);
-    border-left: 4px solid var(--success-green);
-    border-radius: 8px;
-    animation: slideIn .3s ease;
+.stSuccess,
+.stSuccess .element-container,
+[data-testid="stSuccess"],
+[data-testid="stSuccess"] .element-container {
+    background: linear-gradient(90deg, #ecfdf5 0%, #d1fae5 100%) !important;
+    border-left: 4px solid var(--success-green) !important;
+    border-radius: 8px !important;
+    animation: slideIn .3s ease !important;
     color: #064e3b !important;
+    box-shadow: none !important;
+    border-right: none !important;
+    border-top: none !important;
+    border-bottom: none !important;
 }
 
-.stError {
-    background: linear-gradient(90deg, #fef2f2 0%, #fee2e2 100%);
-    border-left: 4px solid var(--error-red);
-    border-radius: 8px;
-    animation: slideIn .3s ease;
+.stError,
+.stError .element-container,
+[data-testid="stException"],
+[data-testid="stException"] .element-container {
+    background: linear-gradient(90deg, #fef2f2 0%, #fee2e2 100%) !important;
+    border-left: 4px solid var(--error-red) !important;
+    border-radius: 8px !important;
+    animation: slideIn .3s ease !important;
     color: #7f1d1d !important;
+    box-shadow: none !important;
+    border-right: none !important;
+    border-top: none !important;
+    border-bottom: none !important;
 }
 
-.stWarning {
-    background: linear-gradient(90deg, #fffbeb 0%, #fef3c7 100%);
-    border-left: 4px solid var(--warning-orange);
-    border-radius: 8px;
-    animation: slideIn .3s ease;
+.stWarning,
+.stWarning .element-container,
+[data-testid="stWarning"],
+[data-testid="stWarning"] .element-container {
+    background: linear-gradient(90deg, #fffbeb 0%, #fef3c7 100%) !important;
+    border-left: 4px solid var(--warning-orange) !important;
+    border-radius: 8px !important;
+    animation: slideIn .3s ease !important;
     color: #78350f !important;
+    box-shadow: none !important;
+    border-right: none !important;
+    border-top: none !important;
+    border-bottom: none !important;
 }
 
-.stInfo {
-    background: linear-gradient(90deg, #eff6ff 0%, #dbeafe 100%);
-    border-left: 4px solid var(--primary-blue);
-    border-radius: 8px;
-    animation: slideIn .3s ease;
+.stInfo,
+.stInfo .element-container,
+[data-testid="stInfo"],
+[data-testid="stInfo"] .element-container {
+    background: linear-gradient(90deg, #eff6ff 0%, #dbeafe 100%) !important;
+    border-left: 4px solid var(--primary-blue) !important;
+    border-radius: 8px !important;
+    animation: slideIn .3s ease !important;
     color: #0f172a !important;
+    box-shadow: none !important;
+    border-right: none !important;
+    border-top: none !important;
+    border-bottom: none !important;
 }
 
 @keyframes slideIn {
@@ -778,6 +1663,147 @@ select:focus, input[type="number"]:focus, input[type="search"]:focus { outline: 
     background: linear-gradient(90deg, #f1f5f9 0%, #e2e8f0 100%);
     transform: translateX(4px);
 }
+
+/* ===============================================
+   GLOBAL SAFETY NET - ELIMINATE ALL DARK ELEMENTS
+   Last line of defense against any dark surfaces
+   =============================================== */
+
+/* Force ALL unknown containers to light theme */
+div, section, article, main, header, footer, aside {
+    background-color: inherit !important;
+}
+
+/* Prevent ANY black or very dark backgrounds */
+*[style*="background: black"],
+*[style*="background: #000"],
+*[style*="background:#000"],
+*[style*="background-color: black"],
+*[style*="background-color: #000"],
+*[style*="background-color:#000"],
+*[style*="background: rgb(0, 0, 0)"],
+*[style*="background-color: rgb(0, 0, 0)"] {
+    background: var(--pure-white) !important;
+}
+
+/* Catch any remaining dark gray backgrounds */
+*[style*="background: #1a1a1a"],
+*[style*="background: #2d2d2d"],
+*[style*="background: #333"],
+*[style*="background-color: #1a1a1a"],
+*[style*="background-color: #2d2d2d"],
+*[style*="background-color: #333"] {
+    background: var(--light-slate) !important;
+}
+
+/* NUCLEAR OPTION: Force ALL button text to be white - ULTRA AGGRESSIVE */
+button,
+button *,
+button span,
+button div,
+button p,
+.stButton button,
+.stButton button *,
+.stButton button span,
+.stButton button div,
+.stButton button p,
+[data-testid="stButton"] button,
+[data-testid="stButton"] button *,
+[data-testid*="button"] button,
+[data-testid*="button"] button *,
+[class*="stButton"] button,
+[class*="stButton"] button *,
+button[style*="background: linear-gradient"],
+button[style*="background: linear-gradient"] *,
+button[style*="background: #1a365d"],
+button[style*="background: #1a365d"] *,
+button[style*="background: #2d3748"],
+button[style*="background: #2d3748"] * {
+    color: var(--pure-white) !important;
+    fill: var(--pure-white) !important;
+    -webkit-text-fill-color: var(--pure-white) !important;
+    -webkit-font-smoothing: antialiased !important;
+    -moz-osx-font-smoothing: grayscale !important;
+    text-rendering: optimizeLegibility !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+/* Override ANY Streamlit inline styles that hide text */
+button[style*="color: transparent"],
+button *[style*="color: transparent"],
+.stButton button[style*="color: transparent"],
+.stButton button *[style*="color: transparent"] {
+    color: var(--pure-white) !important;
+    -webkit-text-fill-color: var(--pure-white) !important;
+}
+
+/* Ensure button backgrounds are never transparent when they should be blue */
+button[class*="st"],
+[data-testid*="button"] button,
+.stButton button {
+    background: linear-gradient(135deg, var(--primary-blue) 0%, #2d3748 100%) !important;
+}
+
+/* Force visibility of all interactive elements */
+button, a, input, select, textarea {
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+/* Ensure SVG icons are never invisible */
+svg, svg path, svg circle, svg rect {
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+/* Contact form specific - light theme enforcement */
+form, 
+.stForm,
+[data-testid="stForm"] {
+    background: var(--pure-white) !important;
+    border: 1px solid var(--light-slate) !important;
+    border-radius: 12px !important;
+    padding: 1.5rem !important;
+}
+
+/* Ensure modals and overlays are light */
+[role="dialog"],
+[role="alertdialog"],
+.modal,
+.overlay {
+    background: var(--pure-white) !important;
+    color: var(--dark-text) !important;
+}
+
+/* Tooltips must be light with dark text */
+[role="tooltip"],
+.tooltip {
+    background: var(--pure-white) !important;
+    color: var(--dark-text) !important;
+    border: 1px solid var(--light-slate) !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+}
+
+/* Loading spinners and progress indicators */
+.stSpinner,
+[data-testid="stSpinner"] {
+    color: var(--primary-blue) !important;
+    border-color: var(--accent-gold) !important;
+}
+
+/* Ensure all Streamlit widgets are light */
+.stSlider,
+.stColorPicker,
+.stDateInput,
+.stTimeInput {
+    background: var(--pure-white) !important;
+    color: var(--dark-text) !important;
+}
+
+/* ===============================================
+   END GLOBAL SAFETY NET
+   =============================================== */
 
 /* Slightly tighter spacing in narrow screens */
 @media (max-width: 640px) {
@@ -943,96 +1969,289 @@ select:focus, input[type="number"]:focus, input[type="search"]:focus { outline: 
 @media (max-width: 992px) {
     #vb-desktop-toggle.vb-desktop-toggle { display: none !important; }
 }
+
+/* ========================================
+   🎯 WHITE ARTIFACT ELIMINATION RULES
+   SURGICAL CSS ADDITIONS - DO NOT MODIFY
+   ======================================== */
+
+/* 🎯 WHITE ARTIFACT FIX #1: Info boxes with instructions (blue background sections) */
+.stAlert, div[data-baseweb="notification"] {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* 🎯 WHITE ARTIFACT FIX #2: Upload file sections (dashed border areas) */
+section[data-testid="stFileUploader"] > div,
+section[data-testid="stFileUploader"] > div > div {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* 🎯 WHITE ARTIFACT FIX #3: Error/Warning message boxes */
+.stAlert > div,
+div[role="alert"] {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* 🎯 WHITE ARTIFACT FIX #4: Success message containers */
+.element-container div[data-testid="stMarkdownContainer"] > div,
+.stSuccess {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* 🎯 WHITE ARTIFACT FIX #5: Call-to-action banner sections */
+div[data-testid="stHorizontalBlock"] > div > div > div {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* 🎯 WHITE ARTIFACT FIX #6: Recording interface instruction boxes */
+div[data-testid="stExpander"] div[data-testid="stMarkdownContainer"] {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* 🎯 WHITE ARTIFACT FIX #7: Contact form header section */
+div[data-testid="column"] > div > div > div[data-testid="stVerticalBlock"] {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* 🎯 WHITE ARTIFACT FIX #8: Generic container backgrounds that appear white */
+.element-container > div:first-child {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* 🎯 WHITE ARTIFACT FIX #9: Streamlit default white backgrounds on markdown containers */
+div[data-testid="stMarkdownContainer"] {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* 🎯 WHITE ARTIFACT FIX #10: Audio player containers */
+div[data-testid="stAudioPlayer"] {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
 </style>
 """
 
 def inject_css():
+    """Inject the global VocalBrand styling and keep buttons fully legible."""
     st.markdown(SUPREME_CSS, unsafe_allow_html=True)
-    # Subtle UI polish for pricing/link buttons in the sidebar
+
     st.markdown(
         """
         <style>
-        /* Primary actions (global): ensure white text/icons on brand-blue buttons */
-        [data-testid="baseButton-primary"],
-        [data-testid="baseButton-primary"] *,
-        .stButton>button[kind="primary"],
-        .stButton>button[kind="primary"] * {
-            color: #ffffff !important;
-            fill: #ffffff !important;
-        }
-        /* Any Streamlit button using our dark-blue background should enforce white text for all descendants */
-        .stButton>button,
-        .stButton>button * {
-            color: #ffffff !important;
-            fill: #ffffff !important;
-        }
-        /* Disabled primary buttons keep readable contrast */
-        [data-testid="baseButton-primary"][disabled],
-        .stButton>button[kind="primary"]:disabled {
-            color: rgba(255,255,255,.85) !important;
+        :root, html, body { color-scheme: light !important; }
+
+        /* Sidebar cleanup */
+        section[data-testid="stSidebar"] .element-container,
+        section[data-testid="stSidebar"] [class*="st-emotion"],
+        section[data-testid="stSidebar"] [class*="css-"],
+        section[data-testid="stSidebar"] .stMarkdown,
+        section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
         }
 
-        /* Global polish for link buttons */
-        [data-testid="stLinkButton"] button,
-        a[data-testid="stLinkButton"] {
-            min-height: 40px !important;
-            border-radius: 10px !important;
-            padding: 0 14px !important;
-            box-shadow: 0 3px 8px rgba(0,0,0,.08) !important;
-            font-weight: 600 !important;
+        section[data-testid="stSidebar"] p,
+        section[data-testid="stSidebar"] ul,
+        section[data-testid="stSidebar"] li,
+        section[data-testid="stSidebar"] div:not(.vb-banner):not([class*="stButton"]):not([class*="stImage"]) {
+            background: transparent !important;
+            border: none !important;
         }
 
-        section[data-testid="stSidebar"] .stButton>button,
-        section[data-testid="stSidebar"] [data-testid="stLinkButton"] button,
-        section[data-testid="stSidebar"] [data-testid="stLinkButton"] a,
-        section[data-testid="stSidebar"] a[data-testid="stLinkButton"] {
-            width: 100% !important;
-            min-height: 42px !important;
-            border-radius: 10px !important;
-            padding: 0 14px !important;
-            box-shadow: 0 3px 8px rgba(0,0,0,.08) !important;
-        }
-        
-        /* Color hierarchy for pricing */
-        section[data-testid="stSidebar"] button[key*="upgrade_btn"],
-        section[data-testid="stSidebar"] button[key*="setup_"],
-        section[data-testid="stSidebar"] button[key*="pack_"],
-        section[data-testid="stSidebar"] button[key*="setup_"][key*="price_"],
-        section[data-testid="stSidebar"] button[key*="pack_"][key*="price_"] {
-            background: linear-gradient(135deg, var(--primary-blue) 0%, #0b2344 100%) !important;
-            color: white !important;
+        section[data-testid="stSidebar"] > div,
+        section[data-testid="stSidebar"] > div > div {
+            background: transparent !important;
             border: none !important;
-            font-weight: 700 !important;
         }
-        /* And ensure their inner spans/icons also stay white */
-        section[data-testid="stSidebar"] button[key*="upgrade_btn"] *,
-        section[data-testid="stSidebar"] button[key*="setup_"] *,
-        section[data-testid="stSidebar"] button[key*="pack_"] *,
-        section[data-testid="stSidebar"] button[key*="setup_"][key*="price_"] *,
-        section[data-testid="stSidebar"] button[key*="pack_"][key*="price_"] * {
-            color:#ffffff !important; fill:#ffffff !important;
-        }
-        /* Apply same treatment to payment link buttons (anchors) */
-        section[data-testid="stSidebar"] [data-testid="stLinkButton"] a,
-        section[data-testid="stSidebar"] a[data-testid="stLinkButton"] {
-            background: linear-gradient(135deg, var(--primary-blue) 0%, #0b2344 100%) !important;
-            color:#ffffff !important;
+
+        /* Form surfaces stay clean */
+        .stForm,
+        [data-testid="stForm"],
+        .stForm .element-container,
+        [data-testid="stForm"] .element-container {
+            background: transparent !important;
             border: none !important;
-            font-weight: 700 !important;
-            display: block !important;
-            text-align: center !important;
+            box-shadow: none !important;
         }
-        /* Guarantee children inside link buttons are white too */
-        [data-testid="stLinkButton"] *,
-        section[data-testid="stSidebar"] [data-testid="stLinkButton"] * {
-            color:#ffffff !important; fill:#ffffff !important;
+
+        .stFormSubmitButton,
+        [data-testid="stFormSubmitButton"],
+        .stFormSubmitButton .element-container,
+        [data-testid="stFormSubmitButton"] .element-container {
+            background: transparent !important;
+            border: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            box-shadow: none !important;
         }
-        
-        /* Compact the right column a bit and create breathing room between rows */
-        section[data-testid="stSidebar"] [data-testid="column"] {
-            margin-bottom: .35rem !important;
+
+        /* Password toggle button remains dark on light background */
+        [data-baseweb="input"] button,
+        [data-baseweb="input"] [role="button"] {
+            background: #ffffff !important;
+            border: 1px solid #cbd5e1 !important;
+            border-radius: 6px !important;
+            color: #0f172a !important;
+            padding: 0.25rem 0.5rem !important;
+            box-shadow: none !important;
+            transition: all 0.2s ease !important;
+        }
+
+        [data-baseweb="input"] button:hover,
+        [data-baseweb="input"] [role="button"]:hover {
+            background: #f8fafc !important;
+            border-color: var(--primary-blue) !important;
+        }
+
+        [data-baseweb="input"] button *,
+        [data-baseweb="input"] [role="button"] *,
+        [data-baseweb="input"] button span,
+        [data-baseweb="input"] [role="button"] span {
+            color: #0f172a !important;
+            fill: #0f172a !important;
+            -webkit-text-fill-color: #0f172a !important;
+        }
+
+        /* Tab containers should never inherit dark chrome */
+        [data-testid="stTabs"],
+        [data-testid="stTabs"] .element-container,
+        [data-baseweb="tab-list"],
+        [data-baseweb="tab-panel"] {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+
+        form .element-container,
+        form [class*="st-emotion"],
+        form [class*="css-"] {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
         }
         </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        """
+        <script>
+        (function() {
+            const SELECTORS = [
+                'button',
+                'a[data-testid="stLinkButton"]',
+                '[data-testid="baseButton-primary"]',
+                '[data-testid="baseButton-secondary"]'
+            ];
+            const SELECTOR_STRING = SELECTORS.join(',');
+
+            function parseColor(value) {
+                if (!value) return null;
+                const match = value.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([0-9.]+))?\)/i);
+                if (!match) return null;
+                return {
+                    r: parseInt(match[1], 10),
+                    g: parseInt(match[2], 10),
+                    b: parseInt(match[3], 10),
+                    a: match[4] === undefined ? 1 : parseFloat(match[4])
+                };
+            }
+
+            function colorTone(el) {
+                let current = el;
+                for (let depth = 0; depth < 4 && current; depth += 1) {
+                    const style = window.getComputedStyle(current);
+                    const bgImage = (style.backgroundImage || '').toLowerCase();
+                    if (bgImage && bgImage !== 'none') {
+                        if (bgImage.includes('gradient') || bgImage.includes('#1a365d') || bgImage.includes('#2d3748') || bgImage.includes('#0b2344')) {
+                            return 'dark';
+                        }
+                    }
+                    const color = parseColor(style.backgroundColor);
+                    if (color && color.a > 0) {
+                        const brightness = (color.r * 299 + color.g * 587 + color.b * 114) / 1000;
+                        return brightness < 170 ? 'dark' : 'light';
+                    }
+                    current = current.parentElement;
+                }
+                return 'light';
+            }
+
+            function shouldSkip(el) {
+                return !!el.closest('[data-baseweb="input"]') || el.dataset.vbToneLocked === '1';
+            }
+
+            function applyTone(el, tone) {
+                const textColor = tone === 'dark' ? 'var(--pure-white)' : 'var(--primary-blue)';
+                el.style.setProperty('color', textColor, 'important');
+                el.dataset.vbTone = tone;
+                el.querySelectorAll('span, p, div, strong, em').forEach(node => {
+                    node.style.setProperty('color', textColor, 'important');
+                });
+                el.querySelectorAll('svg, path, use').forEach(node => {
+                    node.style.setProperty('color', textColor, 'important');
+                    node.style.setProperty('fill', textColor, 'important');
+                    node.style.setProperty('stroke', textColor, 'important');
+                });
+            }
+
+            function update(el) {
+                if (!(el instanceof HTMLElement)) return;
+                if (!el.matches(SELECTOR_STRING)) return;
+                if (shouldSkip(el)) return;
+                applyTone(el, colorTone(el));
+            }
+
+            function process(root) {
+                if (!root) return;
+                if (root instanceof HTMLElement && root.matches(SELECTOR_STRING)) {
+                    update(root);
+                }
+                const nodes = root.querySelectorAll ? root.querySelectorAll(SELECTOR_STRING) : [];
+                nodes.forEach(update);
+            }
+
+            const observer = new MutationObserver(mutations => {
+                mutations.forEach(mutation => {
+                    if (mutation.type === 'childList') {
+                        mutation.addedNodes.forEach(node => process(node));
+                    } else if (mutation.type === 'attributes') {
+                        update(mutation.target);
+                    }
+                });
+            });
+
+            function init() {
+                process(document.body);
+                observer.observe(document.body, {
+                    childList: true,
+                    subtree: true,
+                    attributes: true,
+                    attributeFilter: ['class', 'style', 'aria-selected', 'disabled']
+                });
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', init, { once: true });
+                window.addEventListener('load', init, { once: true });
+            } else {
+                init();
+            }
+        })();
+        </script>
         """,
         unsafe_allow_html=True,
     )

@@ -546,7 +546,7 @@ SESSION_DEFAULTS: Dict[str, Any] = {
     "pending_audio_meta": {},
     "latest_checkout_id": None,
     # UX and automation toggles
-    "use_pro_recorder": True,  # Force built-in HTML5 recorder even if native present (gives live timer+waveform)
+    "use_pro_recorder": False,  # Standard recorder by default; user can enable Pro (timer + waveform) via checkbox
     "trim_silence_toggle": False,  # If enabled, trim leading/trailing silence before cloning
     "auto_clone_toggle": False,  # If enabled, auto-clone immediately after recording lock-in
     "last_auto_clone_hash": "",  # To avoid double auto-clone on reruns
@@ -727,16 +727,92 @@ def render_audio_capture_area() -> None:
         container.dataset.vbInit = '1';
         container.innerHTML = `
             <style>
-              /* Scope styles to this component only */
-              #${rootId} .vbrec-toolbar { display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; }
-              #${rootId} .vbrec-btn { padding:0.55rem 1rem; border:none; border-radius:10px; font-weight:700; cursor:pointer; }
-              #${rootId} .vbrec-btn--start { background: linear-gradient(135deg,#1a365d 0%, #2d3748 100%); color:#fff; }
-              #${rootId} .vbrec-btn--stop { background:#ef4444; color:#fff; }
-              #${rootId} .vbrec-btn:disabled { opacity:.6; cursor:not-allowed; }
-              #${rootId} #vb_status { font-size:0.85rem; color:#334155; }
-              #${rootId} #vb_level { font-size:0.75rem; color:#475569; }
-              #${rootId} #vb_canvas { margin-top:4px; width:100%; height:64px; background:#e2e8f0; border-radius:8px; }
-              #${rootId} #vb_download_wrap a { color:#1a365d; font-weight:700; text-decoration:underline; }
+              /* Scope styles to this component only - SUPREME LIGHT THEME */
+              #${rootId} .vbrec-toolbar { display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap; justify-content:center; margin-bottom:1rem; }
+              #${rootId} .vbrec-btn { 
+                padding:0.75rem 1.5rem; 
+                border:none; 
+                border-radius:10px; 
+                font-weight:600; 
+                cursor:pointer; 
+                transition:all 0.3s ease;
+                min-width:140px;
+                font-size:1rem;
+                box-shadow:0 4px 6px rgba(0,0,0,0.1);
+                display:inline-flex;
+                align-items:center;
+                justify-content:center;
+                gap:0.5rem;
+              }
+              #${rootId} .vbrec-btn--start { 
+                background: linear-gradient(135deg,#1a365d 0%, #2d3748 100%); 
+                color:#ffffff; 
+              }
+              #${rootId} .vbrec-btn--start:hover:not(:disabled) { 
+                background: linear-gradient(135deg,#2d3748 0%, #1a365d 100%); 
+                transform:translateY(-2px);
+                box-shadow:0 8px 12px rgba(0,0,0,0.15);
+              }
+              #${rootId} .vbrec-btn--stop { 
+                background:linear-gradient(135deg,#ef4444 0%, #dc2626 100%); 
+                color:#ffffff;
+                box-shadow:0 4px 6px rgba(239,68,68,0.2);
+              }
+              #${rootId} .vbrec-btn--stop:hover:not(:disabled) {
+                background:linear-gradient(135deg,#dc2626 0%, #ef4444 100%);
+                transform:translateY(-2px);
+                box-shadow:0 8px 12px rgba(239,68,68,0.3);
+              }
+              #${rootId} .vbrec-btn:disabled { opacity:0.6; cursor:not-allowed; transform:none; }
+              #${rootId} #vb_status { 
+                font-size:0.95rem; 
+                color:#0f172a; 
+                font-weight:600;
+                padding:0.5rem 1rem;
+                background:#f8fafc;
+                border-radius:8px;
+              }
+              #${rootId} #vb_level { 
+                font-size:0.95rem; 
+                color:#0f172a; 
+                font-weight:600;
+                padding:0.5rem 1rem;
+                background:#f8fafc;
+                border-radius:8px;
+              }
+              #${rootId} #vb_canvas { 
+                margin-top:1rem; 
+                width:100%; 
+                height:64px; 
+                background:#e2e8f0; 
+                border:2px solid #cbd5e1;
+                border-radius:8px; 
+                box-shadow:inset 0 2px 4px rgba(0,0,0,0.05);
+              }
+              #${rootId} #vb_download_wrap { 
+                margin-top:1rem; 
+                text-align:center; 
+              }
+              #${rootId} #vb_download_wrap a { 
+                display:inline-flex;
+                align-items:center;
+                gap:0.5rem;
+                background:#e2e8f0;
+                color:#1a365d; 
+                padding:0.75rem 1.5rem;
+                border-radius:10px;
+                text-decoration:none;
+                font-weight:600; 
+                border:2px solid #94a3b8;
+                transition:all 0.3s ease;
+                box-shadow:0 2px 6px rgba(0,0,0,0.05);
+              }
+              #${rootId} #vb_download_wrap a:hover {
+                background:#cbd5e1;
+                border-color:#1a365d;
+                transform:translateY(-2px);
+                box-shadow:0 4px 12px rgba(0,0,0,0.1);
+              }
             </style>
             <div class="vbrec-toolbar">
                 <button id="vb_start" class="vbrec-btn vbrec-btn--start">🎙️ Start</button>
@@ -745,8 +821,8 @@ def render_audio_capture_area() -> None:
                 <span id="vb_level">Level: -- dB | 0.0s</span>
             </div>
             <canvas id="vb_canvas" width="600" height="64"></canvas>
-            <audio id="vb_play" controls style="margin-top:0.5rem;width:100%;display:none;background:#ffffff;border-radius:8px;"></audio>
-            <div id="vb_download_wrap" style="margin-top:0.25rem;display:none;"><a id="vb_download" download="vocalbrand_recording.webm">Download recording</a></div>
+            <audio id="vb_play" controls style="margin-top:1rem;width:100%;display:none;background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;padding:0.5rem;"></audio>
+            <div id="vb_download_wrap" style="display:none;"><a id="vb_download" download="vocalbrand_recording.webm">⬇️ Download recording</a></div>
         `;
         const statusEl = container.querySelector('#vb_status');
         const levelEl = container.querySelector('#vb_level');
@@ -794,8 +870,15 @@ def render_audio_capture_area() -> None:
                 analyser = actx.createAnalyser(); analyser.fftSize=1024;
                 dataArray = new Uint8Array(analyser.fftSize);
                 src.connect(analyser);
-                mediaRecorder = new MediaRecorder(stream);
-                chunks=[]; mediaRecorder.ondataavailable=e=>{ if(e.data.size>0) chunks.push(e.data); };
+                // Initialize MediaRecorder and capture chunks (PRO RECORDER — LIGHT THEME)
+                chunks = [];
+                try {
+                    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+                } catch(e) {
+                    // Fallback without mimeType if browser rejects the option
+                    mediaRecorder = new MediaRecorder(stream);
+                }
+                mediaRecorder.ondataavailable = (ev)=>{ if (ev.data && ev.data.size) { chunks.push(ev.data); } };
                 mediaRecorder.onstop = async ()=>{
                     cancelAnimationFrame(rafId);
                     const blob = new Blob(chunks,{type:'audio/webm'});
@@ -961,7 +1044,7 @@ def render_clone_section() -> None:
     # Power-user controls
     colx, coly, colz = st.columns([1.2, 1.2, 1])
     with colx:
-        st.checkbox("Use Pro Recorder (timer + waveform)", key="use_pro_recorder")
+        st.checkbox("Use Pro Recorder (timer + waveform)", key="use_pro_recorder", value=False)
     with coly:
         st.checkbox("Trim silence before cloning", key="trim_silence_toggle")
     with colz:
@@ -1192,23 +1275,26 @@ def render_upgrade_section(container: Any) -> None:
     # Branded upgrade banner
     container.markdown(
         """
-        <div class="vb-banner vb-banner--upgrade">
-            <div class="vb-banner__title">Upgrade to VocalBrand Pro</div>
-            <div class="vb-banner__sub">Unlimited generations • Priority processing • Commercial use</div>
+        <div class="vb-banner vb-banner--upgrade" style="background:linear-gradient(135deg, #1a365d 0%, #0b2344 100%); color:#fff; border-radius:16px; padding:1.25rem; border:none; margin-bottom:1rem;">
+            <div class="vb-banner__title" style="font-weight:800; font-size:1.2rem; color:#fff; margin-bottom:0.5rem;">Upgrade to VocalBrand Pro</div>
+            <div class="vb-banner__sub" style="color:#fff; opacity:0.95;">Unlimited generations • Priority processing • Commercial use</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
-    # Feature bullets (kept for clarity/SEO)
+    # Feature bullets (kept for clarity/SEO) - styled inline to prevent white artifact boxes
     container.markdown(
         """
-        **Pro Features:**
-        - Unlimited voice generations
-        - Priority processing
-        - Commercial license
-        - Advanced voice controls
-        - 24/7 premium support
-        """
+        <div style="color:#0f172a; line-height:1.8; margin-bottom:1rem;">
+        <strong style="color:#0f172a;">Pro Features:</strong><br>
+        • Unlimited voice generations<br>
+        • Priority processing<br>
+        • Commercial license<br>
+        • Advanced voice controls<br>
+        • 24/7 premium support
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
     if payment_manager is None:
         container.info("Stripe key missing. Configure STRIPE_API_KEY to enable billing.")
@@ -1414,28 +1500,68 @@ def login_section() -> None:
             password = st.text_input("Password", type="password", key="login_password")
             submitted = st.form_submit_button("Sign in", type="primary")
             if submitted:
-                ok, uid = authenticate(email, password)
+                # CRITICAL: Validate inputs before authentication
+                email_stripped = (email or "").strip()
+                password_stripped = (password or "").strip()
+                
+                if not email_stripped:
+                    st.error("❌ Email is required. Please enter your email address.")
+                    return
+                
+                if not password_stripped:
+                    st.error("❌ Password is required. Please enter your password.")
+                    return
+                
+                if len(email_stripped) < 3 or "@" not in email_stripped:
+                    st.error("❌ Invalid email format. Please enter a valid email address.")
+                    return
+                
+                if len(password_stripped) < 6:
+                    st.error("❌ Password must be at least 6 characters long.")
+                    return
+                
+                ok, uid = authenticate(email_stripped, password_stripped)
                 if ok and uid:
                     user = get_user(uid)
                     if user:
                         st.session_state["user_id"] = user["id"]
                         st.session_state["user_email"] = user["email"]
                         st.session_state["subscription_active"] = bool(user.get("subscription_active"))
-                        st.success("Signed in successfully.")
+                        st.success("✅ Signed in successfully.")
                         safe_rerun(0.05)
                         return
-                st.error("Invalid credentials. Please try again.")
+                st.error("❌ Invalid credentials. Please check your email and password.")
     with tabs[1]:
         with st.form("register_form"):
             email = st.text_input("Work email", key="register_email")
             password = st.text_input("Password", type="password", key="register_password")
             submitted = st.form_submit_button("Create account", type="primary")
             if submitted:
-                ok, message = register_user(email, password)
+                # CRITICAL: Validate inputs before registration
+                email_stripped = (email or "").strip()
+                password_stripped = (password or "").strip()
+                
+                if not email_stripped:
+                    st.error("❌ Email is required. Please enter your email address.")
+                    return
+                
+                if not password_stripped:
+                    st.error("❌ Password is required. Please create a password.")
+                    return
+                
+                if len(email_stripped) < 3 or "@" not in email_stripped:
+                    st.error("❌ Invalid email format. Please enter a valid email address.")
+                    return
+                
+                if len(password_stripped) < 6:
+                    st.error("❌ Password must be at least 6 characters long.")
+                    return
+                
+                ok, message = register_user(email_stripped, password_stripped)
                 if ok:
-                    st.success("Account created. Sign in using your credentials.")
+                    st.success("✅ Account created. Sign in using your credentials.")
                 else:
-                    st.warning(f"Registration failed: {message}")
+                    st.warning(f"⚠️ Registration failed: {message}")
 
 
 def render_metrics_panel() -> None:
