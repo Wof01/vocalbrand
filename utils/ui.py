@@ -3356,6 +3356,11 @@ def inject_tiktok_browser_fix():
         <button id="vb-tiktok-open-btn" class="vb-tiktok-btn-primary">
             🌐 Open in Browser
         </button>
+
+        <!-- Alternate CTA: Use Pro Recorder inside app -->
+        <button id="vb-tiktok-use-pro" class="vb-tiktok-btn-alt">
+            🎧 Try Pro Recorder (advanced)
+        </button>
         
         <!-- Manual Instructions (expandable) -->
         <details class="vb-tiktok-instructions">
@@ -3517,6 +3522,30 @@ def inject_tiktok_browser_fix():
     color: #475569;
 }
 
+/* Alternate CTA: Pro Recorder button */
+.vb-tiktok-btn-alt {
+    background: #ffffff;
+    color: #1a365d;
+    border: 2px solid #1a365d;
+    border-radius: 12px;
+    padding: 0.875rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    width: 100%;
+    max-width: 320px;
+    margin: 0.25rem auto 1rem auto;
+    display: block;
+    transition: all 0.25s ease;
+    box-shadow: 0 2px 8px rgba(26, 54, 93, 0.12);
+}
+
+.vb-tiktok-btn-alt:hover {
+    background: #f8fafc;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 14px rgba(26, 54, 93, 0.2);
+}
+
 .vb-tiktok-instructions {
     text-align: left;
     margin: 1.5rem 0 1rem 0;
@@ -3579,6 +3608,20 @@ def inject_tiktok_browser_fix():
 
 .vb-tiktok-steps strong {
     color: #1a365d;
+}
+
+/* Highlight pulse for scrolling to Pro Recorder */
+@keyframes vb-pulse-outline {
+    0% { box-shadow: 0 0 0 0 rgba(26, 54, 93, 0.45); }
+    70% { box-shadow: 0 0 0 10px rgba(26, 54, 93, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(26, 54, 93, 0); }
+}
+
+.vb-highlight-pulse {
+    animation: vb-pulse-outline 1.5s ease-out 0s 2;
+    outline: 3px solid #1a365d;
+    outline-offset: 2px;
+    border-radius: 12px;
 }
 
 /* Mobile responsiveness */
@@ -3694,7 +3737,7 @@ def inject_tiktok_browser_fix():
             const dismissed = sessionStorage.getItem('vb-tiktok-dismissed');
             if (dismissed === 'true') {
                 console.log('🎯 VocalBrand: User already dismissed TikTok warning this session');
-                return;
+                return; // Do not re-open modal automatically if dismissed
             }
         } catch (e) {
             // SessionStorage might be blocked in some browsers
@@ -3768,6 +3811,122 @@ def inject_tiktok_browser_fix():
         console.log('🎯 VocalBrand: User must follow manual instructions');
         return false;
     }
+
+    // ========================================
+    // 🎯 Locate Pro Recorder and guide user
+    // ========================================
+    function findProRecorderElement() {
+        // Heuristics to find the Pro Recorder block/button
+        const candidates = [];
+        const querySelectors = [
+            // IDs or classes containing 'pro' or 'recorder'
+            '[id*="pro" i]',
+            '[class*="pro" i]',
+            '[id*="recorder" i]',
+            '[class*="recorder" i]',
+            // Buttons likely to be the Pro Recorder
+            'button', 'a', '[role="button"]'
+        ];
+        try {
+            querySelectors.forEach(sel => {
+                document.querySelectorAll(sel).forEach(el => candidates.push(el));
+            });
+        } catch {}
+
+        // Score candidates by visible text
+        const preferred = candidates.find(el => /Pro\s*Recorder|Recording\s*\(Pro\)|Advanced\s*Recorder|Studio\s*Recorder/i.test(el.innerText || ''));
+        if (preferred) return preferred;
+
+        // Fallback: any element with text mentioning Pro and Record
+        const textEls = Array.from(document.querySelectorAll('button, a, [role="button"], [data-testid]')).filter(el => {
+            const t = (el.innerText || '').trim();
+            return /pro/i.test(t) && /record/i.test(t);
+        });
+        if (textEls.length) return textEls[0];
+
+        return null;
+    }
+
+    function scrollToProRecorderAndHighlight() {
+        const target = findProRecorderElement();
+        if (target) {
+            try { target.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch { target.scrollIntoView(); }
+            try {
+                target.classList.add('vb-highlight-pulse');
+                setTimeout(() => target.classList.remove('vb-highlight-pulse'), 3500);
+            } catch {}
+            console.log('🎯 VocalBrand: Scrolled to Pro Recorder');
+            hideTikTokWarning();
+            return true;
+        }
+        console.warn('🎯 VocalBrand: Pro Recorder UI not found');
+        return false;
+    }
+
+    // ========================================
+    // 🎯 Intercept getUserMedia in TikTok
+    // ========================================
+    function interceptGetUserMediaInTikTok() {
+        if (!IS_TIKTOK) return;
+        if (!navigator.mediaDevices) return;
+        if (navigator.mediaDevices.__vbPatched) return;
+        const orig = navigator.mediaDevices.getUserMedia ? navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices) : null;
+        navigator.mediaDevices.__vbOriginalGetUserMedia = orig;
+        navigator.mediaDevices.getUserMedia = function(constraints) {
+            console.warn('🎯 VocalBrand: Intercepted getUserMedia in TikTok. Showing helpful modal.');
+            try { showTikTokWarning(); } catch {}
+            // Provide a clear NotAllowedError-like rejection
+            const err = new DOMException('Microphone is blocked in TikTok in-app browser. Please open in your device browser or use Pro Recorder.', 'NotAllowedError');
+            return Promise.reject(err);
+        };
+        // Also intercept legacy APIs where available (best effort)
+        try {
+            const legacyWrap = fn => function() {
+                console.warn('🎯 VocalBrand: Intercepted legacy getUserMedia in TikTok.');
+                try { showTikTokWarning(); } catch {}
+                const err = new DOMException('Microphone is blocked in TikTok in-app browser.', 'NotAllowedError');
+                const failure = arguments[1] || arguments[0]; // callback position varies
+                if (typeof failure === 'function') {
+                    try { failure(err); } catch {}
+                }
+            };
+            if (navigator.getUserMedia) navigator.getUserMedia = legacyWrap(navigator.getUserMedia);
+            if (navigator.webkitGetUserMedia) navigator.webkitGetUserMedia = legacyWrap(navigator.webkitGetUserMedia);
+            if (navigator.mozGetUserMedia) navigator.mozGetUserMedia = legacyWrap(navigator.mozGetUserMedia);
+        } catch {}
+        navigator.mediaDevices.__vbPatched = true;
+        console.log('🎯 VocalBrand: getUserMedia interception enabled for TikTok');
+    }
+
+    // ========================================
+    // 🎯 Intercept default record button clicks in TikTok
+    // ========================================
+    function interceptRecordButtons() {
+        if (!IS_TIKTOK) return;
+        const handler = function(e) {
+            const t = e.target;
+            if (!t) return;
+            const el = t.closest ? t.closest('button, a, [role="button"], [data-testid]') : t;
+            if (!el) return;
+            const text = (el.innerText || el.getAttribute('aria-label') || '').trim();
+            if (!text) return;
+            if (/record/i.test(text)) {
+                // Prevent and guide
+                e.preventDefault();
+                e.stopPropagation();
+                console.warn('🎯 VocalBrand: Prevented default recorder in TikTok. Showing guidance.');
+                showTikTokWarning();
+                // Try to guide to Pro Recorder
+                setTimeout(scrollToProRecorderAndHighlight, 150);
+            }
+        };
+        // Capture on multiple events for reliability
+        const opts = { capture: true, passive: false };
+        document.addEventListener('click', handler, opts);
+        document.addEventListener('pointerdown', handler, opts);
+        document.addEventListener('touchstart', handler, opts);
+        console.log('🎯 VocalBrand: Click interception for record buttons enabled');
+    }
     
     /**
      * Initialize TikTok detection and warning system
@@ -3789,9 +3948,10 @@ def inject_tiktok_browser_fix():
         // Show warning IMMEDIATELY (no delay)
         showTikTokWarning();
         
-        // Setup event listeners
+    // Setup event listeners
         const openBtn = document.getElementById('vb-tiktok-open-btn');
         const dismissBtn = document.getElementById('vb-tiktok-dismiss-btn');
+    const useProBtn = document.getElementById('vb-tiktok-use-pro');
         
         if (openBtn) {
             openBtn.addEventListener('click', function() {
@@ -3814,6 +3974,17 @@ def inject_tiktok_browser_fix():
                 }
             });
         }
+        if (useProBtn) {
+            useProBtn.addEventListener('click', function() {
+                console.log('🎯 VocalBrand: "Use Pro Recorder" clicked');
+                scrollToProRecorderAndHighlight();
+                try { sessionStorage.setItem('vb-tiktok-dismissed', 'true'); } catch {}
+            });
+        }
+
+        // Intercept APIs and clicks after UI is wired
+        interceptGetUserMediaInTikTok();
+        interceptRecordButtons();
         
         console.log('🎯 VocalBrand: TikTok detection initialized successfully');
     }
@@ -3865,7 +4036,9 @@ def inject_tiktok_browser_fix():
     
     // Execute immediately if DOM is ready, otherwise wait
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initTikTokFix);
+        document.addEventListener('DOMContentLoaded', function(){
+            initTikTokFix();
+        });
     } else {
         initTikTokFix();
     }
