@@ -969,6 +969,15 @@ def render_audio_capture_area() -> None:
         return
     # Prefer st_audiorec if available; it returns raw wav bytes directly
     raw_bytes: Optional[bytes] = None
+    
+    # 💡 Elegant browser compatibility notice
+    st.info(
+        "💡 **Audio recording tips:**\n\n"
+        "• If the recording button doesn't respond, **refresh the page** or **open in a different browser** (Chrome/Edge recommended).\n\n"
+        "• Some in-app browsers (TikTok, Instagram, Facebook) may have microphone restrictions—try opening this page in your device's default browser for best results.",
+        icon="ℹ️"
+    )
+    
     if st_audiorec is not None:
         with st.spinner("Ready. Click microphone to start/stop"):
             wav_data = st_audiorec()  # returns bytes or None

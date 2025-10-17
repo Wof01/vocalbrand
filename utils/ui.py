@@ -2034,10 +2034,34 @@ div[data-testid="stMarkdownContainer"] {
     background-color: transparent !important;
 }
 
-/* 🎯 WHITE ARTIFACT FIX #10: Audio player containers */
+/* 🎯 WHITE ARTIFACT FIX #10: Audio player containers - VISIBLE & STYLED */
 div[data-testid="stAudioPlayer"] {
     background: transparent !important;
     background-color: transparent !important;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    height: auto !important;
+    min-height: 54px !important;
+    overflow: visible !important;
+}
+
+/* Ensure Streamlit audio player is always visible */
+div[data-testid="stAudioPlayer"] audio,
+div[data-testid="stAudioPlayer"] > div,
+div[data-testid="stAudioPlayer"] * {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    background: var(--pure-white) !important;
+    border-radius: 8px !important;
+}
+
+div[data-testid="stAudioPlayer"] audio {
+    width: 100% !important;
+    min-height: 54px !important;
+    border: 1px solid var(--light-slate) !important;
+    margin: 0.5rem 0 !important;
 }
 
 </style>
