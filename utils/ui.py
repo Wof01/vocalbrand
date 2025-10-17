@@ -106,11 +106,23 @@ section[data-testid="stSidebar"] > div > div {
 
 /* Ensure sidebar itself has NO white boxes or weird padding */
 section[data-testid="stSidebar"] {
+    --vb-sidebar-divider-offset: 8px;
     background: #ffffff !important;
-    border-right: 1px solid #e2e8f0 !important;
+    border-right: none !important;
     overflow-y: auto !important;
     max-height: 100vh !important;
     position: relative !important;
+}
+
+section[data-testid="stSidebar"]::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: var(--vb-sidebar-divider-offset, 0px);
+    width: 1px;
+    background: #e2e8f0;
+    pointer-events: none;
 }
 
 /* Ensure sidebar content wrapper allows scrolling */
@@ -528,16 +540,6 @@ section[data-testid="stSidebar"] [role="radio"] {
     cursor: pointer !important;
     white-space: normal !important;
     word-wrap: break-word !important;
-    font-size: 0.95rem !important;
-    font-weight: 500 !important;
-    color: var(--dark-text) !important;
-    min-height: 2.5rem !important;
-    width: 100% !important;
-    box-sizing: border-box !important;
-    position: relative !important;
-    background: transparent !important;
-    background-color: transparent !important;
-    background-image: none !important;
 }
 
 /* Ensure label text content is properly contained */
@@ -1831,8 +1833,8 @@ form,
 @media (max-width: 992px) {
     .vb-fab-menu { 
         position: fixed; 
-        right: 1rem; 
-        bottom: 1rem; 
+        right: max(1rem, env(safe-area-inset-right) + 1rem); 
+        bottom: max(1rem, env(safe-area-inset-bottom) + 1rem); 
         z-index: 9999; 
         width: 56px; 
         height: 56px; 
@@ -1907,7 +1909,7 @@ form,
 @media (min-width: 993px) {
     #vb-desktop-toggle.vb-desktop-toggle {
         position: fixed;
-        left: 0;
+        left: 0; /* will be overridden by the alignment helper later */
         top: 50%;
         transform: translateY(-50%);
         z-index: 1000000;
@@ -2050,6 +2052,234 @@ def inject_css():
         <style>
         :root, html, body { color-scheme: light !important; }
 
+        /* ╔══════════════════════════════════════════════════════════════╗
+           ║  🚀 SUPREME NAVIGATION MENU - WORLD CLASS TRANSFORMATION  ║
+           ║  Eliminates borders, fixes text flow, creates magic ✨     ║
+           ╚══════════════════════════════════════════════════════════════╝ */
+        
+        /* OBLITERATE the ugly bordered button look - make it INVISIBLE by default */
+        section[data-testid="stSidebar"] .stRadio,
+        section[data-testid="stSidebar"] .stRadio > div,
+        section[data-testid="stSidebar"] .stRadio > div > div,
+        section[data-testid="stSidebar"] [role="radiogroup"],
+        section[data-testid="stSidebar"] [role="radiogroup"] > div,
+        section[data-testid="stSidebar"] [data-testid="stVerticalBlock"],
+        section[data-testid="stSidebar"] .row-widget,
+        section[data-testid="stSidebar"] [class*="stRadio"] [class*="css-"],
+        section[data-testid="stSidebar"] [class*="stRadio"] [class*="st-emotion"] {
+            background: transparent !important;
+            background-color: transparent !important;
+            background-image: none !important;
+            border: none !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            outline: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 0.25rem !important;
+            width: 100% !important;
+            /* CRITICAL: Allow scrolling if content exceeds viewport */
+            max-height: none !important;
+            overflow: visible !important;
+        }
+        
+        /* ANNIHILATE all nested borders and backgrounds - TOTAL TRANSPARENCY */
+        section[data-testid="stSidebar"] .stRadio *:not(label):not(input),
+        section[data-testid="stSidebar"] [role="radiogroup"] *:not(label):not(input):not([role="radio"]) {
+            background: transparent !important;
+            background-color: transparent !important;
+            background-image: none !important;
+            border: none !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            outline: none !important;
+        }
+        
+        /* 🎯 SUPREME LABEL STYLING - Clean, minimal, elegant, COMPACT, ALIGNED */
+        section[data-testid="stSidebar"] .stRadio label,
+        section[data-testid="stSidebar"] [role="radio"] {
+            background: transparent !important;
+            border: none !important;
+            border-radius: 8px !important;
+            padding: 0.5rem 0.75rem !important;
+            margin: 0 !important;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            cursor: pointer !important;
+            
+            /* Typography - Clear and Readable */
+            font-size: 0.9rem !important;
+            font-weight: 500 !important;
+            color: #475569 !important;
+            letter-spacing: 0.01em !important;
+            line-height: 1.3 !important;
+            
+            /* Layout - Force horizontal text flow */
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
+            justify-content: flex-start !important;
+            width: 100% !important;
+            min-height: 40px !important;
+            
+            /* Text flow enforcement */
+            white-space: nowrap !important;
+            overflow: visible !important;
+            text-overflow: clip !important;
+        }
+        
+        /* ✨ HOVER - Subtle, sophisticated interaction */
+        section[data-testid="stSidebar"] .stRadio label:hover,
+        section[data-testid="stSidebar"] [role="radio"]:hover {
+            background: rgba(26, 54, 93, 0.05) !important;
+            border: none !important;
+            transform: none !important;
+            color: var(--primary-blue) !important;
+            box-shadow: 0 2px 6px rgba(26, 54, 93, 0.08) !important;
+        }
+        
+        /* 🌟 ACTIVE/SELECTED - Bold, premium, unmistakable, ALIGNED */
+        section[data-testid="stSidebar"] .stRadio label:has(input:checked),
+        section[data-testid="stSidebar"] [role="radio"][aria-checked="true"] {
+            background: linear-gradient(135deg, rgba(26, 54, 93, 0.1) 0%, rgba(26, 54, 93, 0.05) 100%) !important;
+            border: none !important;
+            border-left: 3px solid var(--primary-blue) !important;
+            padding-left: calc(0.75rem - 3px) !important;
+            font-weight: 600 !important;
+            color: var(--primary-blue) !important;
+            box-shadow: 0 2px 10px rgba(26, 54, 93, 0.12) !important;
+            transform: none !important;
+        }
+        
+        /* 🔘 Radio circle - Clean, visible, on-brand, COMPACT */
+        section[data-testid="stSidebar"] .stRadio input[type="radio"] {
+            width: 18px !important;
+            height: 18px !important;
+            margin: 0 0.625rem 0 0 !important;
+            accent-color: var(--primary-blue) !important;
+            flex-shrink: 0 !important;
+            cursor: pointer !important;
+        }
+        
+        /* 🔥 TEXT FLOW NUCLEAR FIX - Horizontal rendering enforced at ALL levels */
+        section[data-testid="stSidebar"] .stRadio label > div,
+        section[data-testid="stSidebar"] .stRadio label > span,
+        section[data-testid="stSidebar"] [role="radio"] > div,
+        section[data-testid="stSidebar"] [role="radio"] > span {
+            background: transparent !important;
+            border: none !important;
+            line-height: 1.5 !important;
+            color: inherit !important;
+            
+            /* CRITICAL: Inline display + flex for text */
+            display: inline-flex !important;
+            flex: 1 1 auto !important;
+            flex-direction: row !important;
+            align-items: center !important;
+            
+            /* Text rendering */
+            white-space: nowrap !important;
+            overflow: visible !important;
+            text-overflow: clip !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+            
+            /* Force horizontal text rendering */
+            writing-mode: horizontal-tb !important;
+            text-orientation: mixed !important;
+        }
+        
+        /* 💥 DEEP NESTED TEXT FIX - Prevent ANY vertical stacking */
+        section[data-testid="stSidebar"] .stRadio label > div > *,
+        section[data-testid="stSidebar"] .stRadio label > span > *,
+        section[data-testid="stSidebar"] .stRadio label p,
+        section[data-testid="stSidebar"] .stRadio label div div,
+        section[data-testid="stSidebar"] [role="radio"] > div > *,
+        section[data-testid="stSidebar"] [role="radio"] > span > *,
+        section[data-testid="stSidebar"] [role="radio"] p,
+        section[data-testid="stSidebar"] [role="radio"] div div {
+            display: inline !important;
+            width: auto !important;
+            max-width: none !important;
+            white-space: nowrap !important;
+            overflow: visible !important;
+            background: transparent !important;
+            border: none !important;
+            writing-mode: horizontal-tb !important;
+            text-orientation: mixed !important;
+        }
+        
+        /* 🌪️ GLOBAL TEXT ORIENTATION ENFORCEMENT - No vertical text ANYWHERE */
+        section[data-testid="stSidebar"] .stRadio *,
+        section[data-testid="stSidebar"] [role="radiogroup"] * {
+            writing-mode: horizontal-tb !important;
+            text-orientation: mixed !important;
+        }
+        
+        /* 🛡️ FLEX DIRECTION LOCK - Row for text, column for stack */
+        section[data-testid="stSidebar"] .stRadio label *:not(input),
+        section[data-testid="stSidebar"] [role="radio"] *:not(input) {
+            flex-direction: row !important;
+        }
+        
+        /* 🎨 NAVIGATION HEADER STYLING - "Navigation" label - COMPACT & ALIGNED */
+        section[data-testid="stSidebar"] .stRadio > label:first-of-type,
+        section[data-testid="stSidebar"] [role="radiogroup"] > label:first-of-type {
+            font-weight: 700 !important;
+            font-size: 0.8rem !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.1em !important;
+            color: #64748b !important;
+            padding: 0.375rem 0.75rem 0.5rem !important;
+            margin-bottom: 0.25rem !important;
+            border-bottom: none !important;
+            background: transparent !important;
+        }
+        
+        /* 📜 CRITICAL: Enable sidebar scrolling when content overflows */
+        section[data-testid="stSidebar"] {
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            height: 100vh !important;
+            max-height: 100vh !important;
+            padding: 1rem 0.5rem !important;
+        }
+        
+        section[data-testid="stSidebar"] > div:first-child {
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            height: 100% !important;
+            max-height: 100% !important;
+            padding-bottom: 2rem !important;
+        }
+        
+        /* 🎯 SUPREME ALIGNMENT FIX: Match navigation items with toggle button position */
+        section[data-testid="stSidebar"] .stRadio {
+            padding-left: 0.5rem !important;
+            padding-right: 0.5rem !important;
+        }
+        
+        /* Align radio items to match the toggle button's visual line */
+        section[data-testid="stSidebar"] .stRadio label {
+            padding-left: 0.75rem !important;
+            padding-right: 0.75rem !important;
+        }
+        
+        /* Ensure header aligns with items */
+        section[data-testid="stSidebar"] .stRadio > label:first-of-type,
+        section[data-testid="stSidebar"] [role="radiogroup"] > label:first-of-type {
+            padding-left: 0.75rem !important;
+            padding-right: 0.75rem !important;
+        }
+        
+        /* Perfect vertical alignment: all items same left edge */
+        section[data-testid="stSidebar"] .stRadio label,
+        section[data-testid="stSidebar"] [role="radio"] {
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+        }
+
         /* Sidebar cleanup */
         section[data-testid="stSidebar"] .element-container,
         section[data-testid="stSidebar"] [class*="st-emotion"],
@@ -2140,6 +2370,30 @@ def inject_css():
             background: transparent !important;
             border: none !important;
             box-shadow: none !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+                )
+
+    # Ultra-supreme: place desktop toggle flush with sidebar edge (visual-only)
+    st.markdown(
+        """
+        <style>
+        @media (min-width: 993px) {
+            :root { --vb-sidebar-w: 21rem; }
+            /* When sidebar is OPEN (checkbox unchecked), move toggle to sidebar edge */
+            :root:not(:has(#vb-desktop-chk:checked)) #vb-desktop-toggle.vb-desktop-toggle {
+                left: calc(var(--vb-sidebar-w) - 8px) !important; /* slightly overlap for a neat seam */
+                top: 50% !important;
+                transform: translateY(-50%) !important;
+            }
+            /* When sidebar is CLOSED (checkbox checked), keep it at the left edge */
+            :root:has(#vb-desktop-chk:checked) #vb-desktop-toggle.vb-desktop-toggle {
+                left: 0 !important;
+                top: 50% !important;
+                transform: translateY(-50%) !important;
+            }
         }
         </style>
         """,
@@ -2597,7 +2851,8 @@ def inject_mobile_nav_helpers():
                     display: block !important;
                     visibility: visible !important;
                     opacity: 1 !important;
-                    z-index: 999999 !important;
+                    /* Put the sidebar absolutely on top of everything */
+                    z-index: 999999 !important; /* max int for safety */
                     position: fixed !important;
                     top: 0 !important;
                     height: 100vh !important;
@@ -2987,6 +3242,15 @@ def inject_mobile_nav_helpers():
 
     function clearSidebarInlineStyles() {
         const candidates = getSidebarCandidates();
+        candidates.forEach(sidebar => {
+            INLINE_PROPS.forEach(p => {
+                try { sidebar.style.removeProperty(p); } catch {}
+            });
+            const shell = sidebar.parentElement;
+            if (shell && shell instanceof HTMLElement) {
+                INLINE_PROPS.forEach(p => { try { shell.style.removeProperty(p); } catch {} });
+            }
+        });
         candidates.forEach(sidebar => {
             INLINE_PROPS.forEach(p => {
                 try { sidebar.style.removeProperty(p); } catch {}
