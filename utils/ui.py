@@ -3624,6 +3624,34 @@ def inject_tiktok_browser_fix():
     border-radius: 12px;
 }
 
+/* 🎯 Inline hint banner near default recorder (TikTok only) */
+.vb-tiktok-inline-hint {
+    display: flex;
+    gap: .75rem;
+    align-items: flex-start;
+    background: #fff7ed; /* warm info */
+    border: 1px solid #f59e0b; /* amber */
+    color: #78350f; /* dark amber text */
+    border-radius: 12px;
+    padding: .75rem 1rem;
+    margin: .5rem 0 1rem 0;
+    box-shadow: 0 6px 16px rgba(0,0,0,.06);
+}
+.vb-tiktok-inline-hint .vb-hint-icon { font-size: 1.35rem; line-height: 1; }
+.vb-tiktok-inline-hint .vb-hint-body { flex: 1; }
+.vb-tiktok-inline-hint .vb-hint-title { font-weight: 800; margin: 0 0 .25rem 0; color: #1a365d; }
+.vb-tiktok-inline-hint .vb-hint-text { margin: 0 0 .5rem 0; font-weight: 600; }
+.vb-tiktok-inline-hint .vb-hint-actions { display: flex; gap: .5rem; flex-wrap: wrap; }
+.vb-tiktok-inline-hint .vb-hint-btn {
+    border-radius: 10px;
+    padding: .5rem .9rem;
+    font-weight: 700;
+    cursor: pointer;
+    border: 2px solid transparent;
+}
+.vb-tiktok-inline-hint .vb-hint-btn.primary { background: #1a365d; color: #fff; border-color: #1a365d; }
+.vb-tiktok-inline-hint .vb-hint-btn.secondary { background: #fff; color: #1a365d; border-color: #1a365d; }
+
 /* Mobile responsiveness */
 @media (max-width: 600px) {
     #vb-tiktok-content {
@@ -3813,6 +3841,82 @@ def inject_tiktok_browser_fix():
     }
 
     // ========================================
+    // 🎯 Inline hint placement near default recorder (TikTok only)
+    // ========================================
+    function buildInlineHintElement() {
+        const wrap = document.createElement('div');
+        wrap.id = 'vb-tiktok-inline-hint';
+        wrap.className = 'vb-tiktok-inline-hint';
+        wrap.innerHTML = `
+            <div class="vb-hint-icon">🔒</div>
+            <div class="vb-hint-body">
+                <div class="vb-hint-title">TikTok limits microphone access here</div>
+                <div class="vb-hint-text">Open in your device browser to record, or try the Pro Recorder below.</div>
+                <div class="vb-hint-actions">
+                    <button type="button" class="vb-hint-btn primary" data-vb-action="open">Open in Browser</button>
+                    <button type="button" class="vb-hint-btn secondary" data-vb-action="pro">Try Pro Recorder</button>
+                </div>
+            </div>
+        `;
+        // Wire actions
+        wrap.addEventListener('click', function(e){
+            const btn = e.target && e.target.closest ? e.target.closest('[data-vb-action]') : null;
+            if (!btn) return;
+            const action = btn.getAttribute('data-vb-action');
+            if (action === 'open') {
+                try { openInBrowser(); } catch {}
+            } else if (action === 'pro') {
+                try { scrollToProRecorderAndHighlight(); } catch {}
+            }
+        }, { capture: true });
+        return wrap;
+    }
+
+    function findDefaultRecorderContainer() {
+        // Heuristics: look for visible blocks containing common recorder copy/buttons
+        const roots = Array.from(document.querySelectorAll('[data-testid], .element-container, section, div, main'));
+        const candidates = [];
+        roots.forEach(node => {
+            const text = (node.innerText || '').toLowerCase();
+            if (!text) return;
+            if (
+                text.includes('start recording') ||
+                text.includes('record a 30-60s sample') ||
+                text.includes('record a sample') ||
+                text.includes('microphone')
+            ) {
+                // avoid giant containers; prefer medium blocks
+                const rect = node.getBoundingClientRect();
+                if (rect.width > 240 && rect.width < window.innerWidth * 0.95) {
+                    candidates.push({node, score: 0});
+                }
+            }
+        });
+        // Score: proximity to obvious buttons/canvas
+        candidates.forEach(c => {
+            try {
+                const btns = c.node.querySelectorAll('button, [role="button"]');
+                c.score += Math.min(5, btns.length);
+                if (c.node.querySelector('#vb_start, button[id*="start" i]')) c.score += 3;
+                if (c.node.querySelector('#vb_canvas, canvas')) c.score += 2;
+            } catch {}
+        });
+        candidates.sort((a,b)=>b.score-a.score);
+        return (candidates[0] && candidates[0].node) || null;
+    }
+
+    function placeTikTokInlineHint() {
+        if (!IS_TIKTOK) return false;
+        if (document.getElementById('vb-tiktok-inline-hint')) return true; // already placed
+        const container = findDefaultRecorderContainer();
+        if (!container) return false;
+        const hint = buildInlineHintElement();
+        try { container.prepend(hint); } catch { container.insertBefore(hint, container.firstChild); }
+        console.log('🎯 VocalBrand: Inline TikTok hint placed near recorder');
+        return true;
+    }
+
+    // ========================================
     // 🎯 Locate Pro Recorder and guide user
     // ========================================
     function findProRecorderElement() {
@@ -3982,9 +4086,13 @@ def inject_tiktok_browser_fix():
             });
         }
 
-        // Intercept APIs and clicks after UI is wired
+    // Intercept APIs and clicks after UI is wired
         interceptGetUserMediaInTikTok();
         interceptRecordButtons();
+    // Place inline hint banner (best-effort, TikTok only)
+    setTimeout(placeTikTokInlineHint, 200);
+    setTimeout(placeTikTokInlineHint, 800);
+    setTimeout(placeTikTokInlineHint, 1600);
         
         console.log('🎯 VocalBrand: TikTok detection initialized successfully');
     }
@@ -4054,6 +4162,10 @@ def inject_tiktok_browser_fix():
                     initTikTokFix();
                 }
             }, 100);
+        }
+        // Try to place inline hint if recorder appears later
+        if (IS_TIKTOK) {
+            placeTikTokInlineHint();
         }
     });
     
