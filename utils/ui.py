@@ -3309,6 +3309,39 @@ def inject_tiktok_browser_fix():
     - Session storage to avoid nagging users repeatedly
     """
     html = """
+<!-- 🎯 INSTANT TIKTOK DETECTION SCRIPT (RUNS BEFORE ANYTHING ELSE) -->
+<script>
+(function() {
+    // IMMEDIATE detection before any HTML renders
+    const ua = navigator.userAgent || '';
+    
+    // Comprehensive TikTok detection (all known identifiers)
+    const isTikTok = ua.includes('TikTok') || 
+                     ua.includes('musical_ly') || 
+                     ua.includes('trill') || 
+                     ua.includes('Bytedance') ||
+                     ua.includes('BytedanceWebview') ||
+                     ua.includes('Aweme') ||
+                     ua.match(/\bTT[0-9]+\b/i);
+    
+    if (isTikTok) {
+        console.warn('🎯 VocalBrand: 🚨 INSTANT TikTok detection SUCCESS - modal will show immediately');
+        console.log('🎯 VocalBrand: Detected UA:', ua);
+        
+        // Store detection result for later use
+        window.VB_IS_TIKTOK = true;
+        
+        // Add CSS to make modal visible immediately (no waiting)
+        document.write('<style>#vb-tiktok-warning{display:flex !important; visibility:visible !important; opacity:1 !important;}</style>');
+        
+        // Also add inline style to body to prevent scrolling
+        document.write('<style>body{overflow:hidden !important;}</style>');
+    } else {
+        console.log('🎯 VocalBrand: Instant check - Not TikTok browser');
+    }
+})();
+</script>
+
 <!-- 🎯 TIKTOK BROWSER DETECTION & WARNING UI -->
 <div id="vb-tiktok-warning" style="display:none;">
     <div id="vb-tiktok-content">
@@ -3575,6 +3608,36 @@ def inject_tiktok_browser_fix():
     'use strict';
     
     // ========================================
+    // 🎯 IMMEDIATE TIKTOK DETECTION (RUN FIRST)
+    // ========================================
+    
+    // Check IMMEDIATELY if we're in TikTok (before any DOM waiting)
+    const ua = navigator.userAgent || navigator.vendor || window.opera || '';
+    
+    // Check multiple TikTok identifiers (comprehensive list)
+    const IS_TIKTOK = window.VB_IS_TIKTOK || // From instant detection script
+                      ua.includes('TikTok') || 
+                      ua.includes('musical_ly') || 
+                      ua.includes('trill') || 
+                      ua.includes('Bytedance') ||
+                      ua.includes('BytedanceWebview') ||
+                      ua.includes('Aweme') ||
+                      ua.match(/\bTT[0-9]+\b/i); // TikTok version codes
+    
+    // Log detection IMMEDIATELY
+    if (IS_TIKTOK) {
+        console.warn('🎯 VocalBrand: ⚠️ TIKTOK BROWSER DETECTED IMMEDIATELY');
+        console.log('🎯 VocalBrand: User Agent:', ua);
+        console.log('🎯 VocalBrand: Detection method:', window.VB_IS_TIKTOK ? 'Instant script' : 'UA matching');
+        console.log('🎯 VocalBrand: Page will show microphone warning modal');
+        
+        // Set window flag for other scripts
+        window.VB_IS_TIKTOK = true;
+    } else {
+        console.log('🎯 VocalBrand: ✅ Standard browser detected - all features available');
+    }
+    
+    // ========================================
     // 🎯 TIKTOK BROWSER DETECTION LOGIC
     // ========================================
     
@@ -3583,15 +3646,7 @@ def inject_tiktok_browser_fix():
      * Checks for TikTok and musical_ly (TikTok's original name) in user agent
      */
     function isTikTokBrowser() {
-        const ua = navigator.userAgent || navigator.vendor || window.opera || '';
-        const isTikTok = ua.includes('TikTok') || ua.includes('musical_ly');
-        
-        if (isTikTok) {
-            console.warn('🎯 VocalBrand: TikTok in-app browser detected');
-            console.log('🎯 VocalBrand: User Agent:', ua);
-        }
-        
-        return isTikTok;
+        return IS_TIKTOK;
     }
     
     /**
@@ -3726,11 +3781,13 @@ def inject_tiktok_browser_fix():
             return;
         }
         
+        console.log('🎯 VocalBrand: 🚨 TikTok detected - showing warning IMMEDIATELY');
+        
         // Test microphone access for debugging
         testMicrophoneAccess();
         
-        // Show warning after a brief delay to ensure DOM is ready
-        setTimeout(showTikTokWarning, 500);
+        // Show warning IMMEDIATELY (no delay)
+        showTikTokWarning();
         
         // Setup event listeners
         const openBtn = document.getElementById('vb-tiktok-open-btn');
@@ -3762,7 +3819,48 @@ def inject_tiktok_browser_fix():
     }
     
     // ========================================
-    // 🎯 RUN ON PAGE LOAD
+    // 🎯 EMERGENCY IMMEDIATE SHOW (NO WAITING)
+    // ========================================
+    
+    // If TikTok detected, try to show modal RIGHT NOW (even before DOM ready)
+    if (IS_TIKTOK) {
+        console.log('🎯 VocalBrand: Attempting IMMEDIATE modal display (before DOM ready)');
+        
+        // Try to get element immediately
+        const tryShowImmediate = function() {
+            const warning = document.getElementById('vb-tiktok-warning');
+            if (warning) {
+                console.log('🎯 VocalBrand: ✅ Found warning element - showing IMMEDIATELY');
+                warning.classList.add('vb-show');
+                warning.style.display = 'flex';
+                document.body.style.overflow = 'hidden';
+                return true;
+            }
+            return false;
+        };
+        
+        // Try immediately
+        if (!tryShowImmediate()) {
+            // If not found, try every 50ms for up to 2 seconds
+            console.log('🎯 VocalBrand: Warning element not found yet, polling...');
+            let attempts = 0;
+            const maxAttempts = 40; // 40 * 50ms = 2 seconds
+            
+            const pollInterval = setInterval(function() {
+                attempts++;
+                if (tryShowImmediate()) {
+                    clearInterval(pollInterval);
+                    console.log('🎯 VocalBrand: ✅ Warning displayed after', attempts * 50, 'ms');
+                } else if (attempts >= maxAttempts) {
+                    clearInterval(pollInterval);
+                    console.error('🎯 VocalBrand: ❌ Failed to find warning element after 2 seconds');
+                }
+            }, 50);
+        }
+    }
+    
+    // ========================================
+    // 🎯 RUN ON PAGE LOAD (STANDARD FLOW)
     // ========================================
     
     // Execute immediately if DOM is ready, otherwise wait
