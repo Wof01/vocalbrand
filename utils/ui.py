@@ -2538,6 +2538,9 @@ def inject_css():
     # Detects TikTok in-app browser and warns users about microphone limitations
     inject_tiktok_browser_fix()
 
+    # Additive-only UI fixes: sidebar divider alignment, nav radio alignment, and Pro Recorder audio reveal
+    inject_supreme_sidebar_and_audio_fix()
+
 def feature_columns(features: Iterable[str]):
     cols = st.columns(len(features))
     for col, feat in zip(cols, features):
@@ -3578,6 +3581,187 @@ def inject_mobile_nav_helpers():
             st.markdown(html, unsafe_allow_html=True)
     except Exception:
         # Fallback to markdown if html is unavailable
+        st.markdown(html, unsafe_allow_html=True)
+
+
+def inject_supreme_sidebar_and_audio_fix():
+        """Additive-only CSS/JS to:
+        1) Align sidebar divider with the desktop toggle seam.
+        2) Keep all Navigation radios visible, single-line, perfectly aligned.
+        3) Ensure Pro Recorder audio player appears after recording.
+        """
+        import streamlit as st
+        html = """
+        <style>
+            /* ---------- 1) Sidebar thin divider aligned with toggle (visual only) ---------- */
+            section[data-testid="stSidebar"]{
+                position: relative;
+                border-right: 1px solid rgba(15, 23, 42, 0.08) !important; /* sits exactly at the sidebar edge */
+                overflow-y: auto !important;  /* allow scrolling if needed */
+                max-height: 100vh !important;
+            }
+                    /* Disable any prior pseudo-divider to avoid double lines */
+                    section[data-testid="stSidebar"]::after{
+                        display: none !important;
+                    }
+            /* Keep the desktop toggle visually hugging the seam without shifting radios */
+            section[data-testid="stSidebar"] .vb-desktop-toggle{
+                position: absolute;
+                top: 50%;
+                transform: translateY(-50%);
+                right: -12px;              /* overlap seam by 12px; stays aligned if sidebar width changes */
+                left: auto !important;     /* prevent drifting */
+                margin: 0 !important;
+            }
+
+            /* ---------- 2) Navigation radios: visible, single-line, perfectly aligned ---------- */
+            /* Container spacing: compact but accessible */
+            section[data-testid="stSidebar"] .stRadio{
+                padding: 0.25rem 0.5rem !important;
+            }
+            /* Force horizontal text flow and alignment for all labels */
+            section[data-testid="stSidebar"] .stRadio > div[role="radiogroup"] label{
+                display: flex !important;
+                align-items: center !important;
+                gap: 0.5rem !important;
+                padding: 0.5rem 0.875rem !important; /* compact, consistent */
+                margin: 0.25rem 0 !important;
+                min-height: 40px !important;         /* accessible touch target */
+                border-radius: 12px !important;
+                background: transparent !important;
+                writing-mode: horizontal-tb !important;
+                text-orientation: mixed !important;
+                white-space: nowrap !important;      /* keep one line */
+                overflow: visible !important;
+                line-height: 1.3 !important;
+                box-shadow: none !important;
+                transform: none !important;          /* kill any horizontal nudge on hover/active */
+            }
+            /* Radio glyph sizing and spacing */
+            section[data-testid="stSidebar"] .stRadio > div[role="radiogroup"] label input[type="radio"]{
+                width: 18px !important;
+                height: 18px !important;
+                flex: 0 0 auto !important;
+            }
+            /* Text node rules (prevent vertical stacking) */
+            section[data-testid="stSidebar"] .stRadio > div[role="radiogroup"] label span,
+            section[data-testid="stSidebar"] .stRadio > div[role="radiogroup"] label div{
+                display: inline-flex !important;
+                align-items: center !important;
+                min-width: 0 !important;
+            }
+
+            /* Selected state: premium highlight without offsetting alignment */
+            section[data-testid="stSidebar"] .stRadio > div[role="radiogroup"] label[aria-checked="true"]{
+                background: linear-gradient(180deg, rgba(30,58,138,0.06), rgba(30,58,138,0.03)) !important;
+                box-shadow: 0 2px 8px rgba(2,6,23,0.06) !important;
+            }
+
+            /* Ensure the whole nav block fits; if not, sidebar scrolls (see container rule above) */
+            section[data-testid="stSidebar"] .stRadio > div[role="radiogroup"]{
+                margin-bottom: 0.5rem !important;
+            }
+
+            /* ---------- 3) Pro Recorder: guarantee audio player visibility after recording ---------- */
+            /* Unhide/size Streamlit audio container across themes */
+                    [data-testid="stAudio"],
+                    [data-testid="stAudio"] audio,
+                    [data-testid="stAudioPlayer"],
+                    [data-testid="stAudioPlayer"] audio{
+                display: block !important;
+                width: 100% !important;
+                min-height: 44px !important;       /* visible, tappable */
+                opacity: 1 !important;
+                visibility: visible !important;
+            }
+            /* Prevent clipping by parent containers */
+                    [data-testid="stAudio"],
+                    [data-testid="stAudioPlayer"]{
+                overflow: visible !important;
+                margin-top: 0.5rem !important;
+                margin-bottom: 0.75rem !important;
+                z-index: 2;
+            }
+
+            /* Subtle info chip near recorders (non-invasive) */
+            .vb-recorder-note{
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                font-size: 12.5px;
+                color: #334155;
+                background: #f8fafc;
+                border: 1px solid #e2e8f0;
+                border-radius: 999px;
+                padding: 6px 10px;
+                margin: 6px 0 2px 0;
+            }
+            .vb-recorder-note b{ color:#1e3a8a; }
+        </style>
+
+        <script>
+        (function(){
+            'use strict';
+
+            // 3) Ensure audio player appears after Pro Recorder actions.
+            // Observe DOM for incoming stAudio and ensure it's visible and scrolled into view once.
+            const once = new Set();
+            const revealAudio = (node) => {
+                if (!node || once.has(node)) return;
+                once.add(node);
+                try{
+                    node.style.display = 'block';
+                    node.style.opacity = '1';
+                    node.style.visibility = 'visible';
+                    const audio = node.querySelector('audio');
+                    if (audio){
+                        audio.controls = true;
+                        // Scroll gently into view without shifting layout
+                        setTimeout(() => {
+                            node.scrollIntoView({behavior:'smooth', block:'nearest', inline:'nearest'});
+                        }, 120);
+                    }
+                }catch(e){}
+            };
+
+                    const mo = new MutationObserver((mList) => {
+                for(const m of mList){
+                    m.addedNodes && m.addedNodes.forEach(n => {
+                        if (!(n instanceof HTMLElement)) return;
+                                if (n.matches?.('[data-testid="stAudio"], [data-testid="stAudioPlayer"]')) revealAudio(n);
+                                const maybe = n.querySelector?.('[data-testid="stAudio"], [data-testid="stAudioPlayer"]');
+                                if (maybe) revealAudio(maybe);
+                    });
+                }
+            });
+
+            if (document.body){
+                mo.observe(document.body, {childList:true, subtree:true});
+            }
+
+            // Add a small, elegant note near typical recorder containers (non-destructive).
+            function placeRecorderNote(){
+                const texts = ['Record','Recorder','Start recording','Pro Recorder'];
+                const candidates = Array.from(document.querySelectorAll('button, [role="button"], h3, h4, label, p'))
+                    .filter(el => texts.some(t => (el.textContent || '').toLowerCase().includes(t.toLowerCase())));
+                if (!candidates.length) return;
+                const anchor = candidates[0];
+                if (anchor && !document.querySelector('.vb-recorder-note')){
+                    const chip = document.createElement('div');
+                    chip.className = 'vb-recorder-note';
+                    chip.innerHTML = 'Note: If the audio button does not appear after recording, <b>refresh</b> this page or open in your device browser (Safari/Chrome).';
+                    anchor.parentNode?.insertBefore(chip, anchor.nextSibling);
+                }
+            }
+
+            if (document.readyState === 'loading'){
+                document.addEventListener('DOMContentLoaded', placeRecorderNote);
+            } else {
+                placeRecorderNote();
+            }
+        })();
+        </script>
+        """
         st.markdown(html, unsafe_allow_html=True)
 
 
