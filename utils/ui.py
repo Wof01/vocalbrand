@@ -15,6 +15,7 @@ SUPREME_CSS = """
     --pure-white:#ffffff;
     --dark-text:#0f172a;
     --border-gray:#94a3b8;
+    --vb-toggle-overlap:8px;
 }
 
 /* ===============================
@@ -3593,57 +3594,144 @@ def inject_supreme_sidebar_and_audio_fix():
         import streamlit as st
         html = """
         <style>
-            /* ---------- 1) Sidebar thin divider aligned with toggle (visual only) ---------- */
+            /* ---------- 1) Sidebar + global seam line (aligned with toggle) ---------- */
             section[data-testid="stSidebar"]{
-                position: relative;
-                border-right: 1px solid rgba(15, 23, 42, 0.08) !important; /* sits exactly at the sidebar edge */
-                overflow-y: auto !important;  /* allow scrolling if needed */
+                position: relative !important;
+                overflow-y: auto !important;
                 max-height: 100vh !important;
             }
-                    /* Disable any prior pseudo-divider to avoid double lines */
-                    section[data-testid="stSidebar"]::after{
-                        display: none !important;
-                    }
-            /* Keep the desktop toggle visually hugging the seam without shifting radios */
-            section[data-testid="stSidebar"] .vb-desktop-toggle{
-                position: absolute;
-                top: 50%;
-                transform: translateY(-50%);
-                right: -12px;              /* overlap seam by 12px; stays aligned if sidebar width changes */
-                left: auto !important;     /* prevent drifting */
-                margin: 0 !important;
+            /* Disable any prior pseudo-dividers to avoid double-lines */
+            section[data-testid="stSidebar"]::before,
+            [data-testid="stSidebar"]::before{
+                content: "" !important;
+                position: absolute !important;
+                top: 0 !important;
+                bottom: 0 !important;
+                left: calc(
+                    var(--vb-sidebar-w, 336px) - var(--vb-toggle-overlap, 8px) - 3px
+                ) !important;
+                width: 3px !important;
+                display: block !important;
+                border-radius: 0 999px 999px 0 !important;
+                background: linear-gradient(180deg,
+                    rgba(12, 30, 66, 0.98) 0%,
+                    rgba(19, 49, 96, 0.98) 34%,
+                    rgba(28, 76, 140, 0.96) 68%,
+                    rgba(30, 100, 160, 0.94) 100%
+                ) !important;
+                border-left: 1px solid rgba(8, 22, 48, 0.65) !important;
+                border-right: 1px solid rgba(255, 255, 255, 0.45) !important;
+                box-shadow:
+                    0 0 0 1px rgba(11, 27, 60, 0.35) !important,
+                    0 6px 28px rgba(15, 23, 42, 0.32) !important;
+                opacity: 0 !important;
+                transform: none !important;
+                transition: opacity 0.28s ease, transform 0.28s ease !important;
+                pointer-events: none !important;
             }
 
-            /* ---------- 2) Navigation radios: visible, single-line, perfectly aligned ---------- */
-            /* Container spacing: compact but accessible */
-            section[data-testid="stSidebar"] .stRadio{
-                padding: 0.25rem 0.5rem !important;
+            section[data-testid="stSidebar"]::after,
+            [data-testid="stSidebar"]::after{
+                content: "" !important;
+                position: absolute !important;
+                top: -6px !important;
+                bottom: -6px !important;
+                left: calc(
+                    var(--vb-sidebar-w, 336px) - var(--vb-toggle-overlap, 8px) - 6px
+                ) !important;
+                width: 9px !important;
+                border-radius: 999px !important;
+                background: linear-gradient(180deg,
+                    rgba(48, 86, 140, 0.42) 0%,
+                    rgba(32, 102, 180, 0.32) 55%,
+                    rgba(16, 185, 129, 0.25) 100%
+                ) !important;
+                filter: blur(6px) !important;
+                opacity: 0 !important;
+                transition: opacity 0.35s ease !important;
+                pointer-events: none !important;
             }
-            /* Force horizontal text flow and alignment for all labels */
+
+            @media (min-width: 993px) {
+                body:not(.vb-sidebar-collapsed) section[data-testid="stSidebar"]::before,
+                body:not(.vb-sidebar-collapsed) [data-testid="stSidebar"]::before{
+                    opacity: 1 !important;
+                    transform: none !important;
+                }
+                body:not(.vb-sidebar-collapsed) section[data-testid="stSidebar"]::after,
+                body:not(.vb-sidebar-collapsed) [data-testid="stSidebar"]::after{
+                    opacity: 1 !important;
+                }
+            }
+
+            @media (max-width: 992px) {
+                body:has(#vb-nav-toggle:checked) section[data-testid="stSidebar"]::before,
+                body:has(#vb-nav-toggle:checked) [data-testid="stSidebar"]::before{
+                    opacity: 1 !important;
+                    transform: none !important;
+                    left: 0 !important;
+                }
+                body:has(#vb-nav-toggle:checked) section[data-testid="stSidebar"]::after,
+                body:has(#vb-nav-toggle:checked) [data-testid="stSidebar"]::after{
+                    opacity: 0.85 !important;
+                    left: -2px !important;
+                }
+            }
+
+            /* Seam line as a fixed overlay that aligns to the toggle's seam */
+            @media (min-width: 993px) {
+                .vb-seam-line {
+                    position: fixed !important;
+                    top: 0 !important;
+                    bottom: 0 !important;
+                    width: 1px !important;
+                    background: rgba(15, 23, 42, 0.12) !important;
+                    pointer-events: none !important;
+                    z-index: 99998 !important; /* just below toggle */
+                }
+                :root:not(:has(#vb-desktop-chk:checked)) .vb-seam-line { left: var(--vb-sidebar-w, 336px) !important; }
+                :root:has(#vb-desktop-chk:checked) .vb-seam-line { left: 0 !important; }
+
+                /* Green content rail: subtle accent line in content area */
+                .vb-rail-green {
+                    position: fixed !important;
+                    top: 0 !important;
+                    bottom: 0 !important;
+                    width: 3px !important;
+                    background: linear-gradient(180deg, var(--success-green), #22c55e) !important;
+                    pointer-events: none !important;
+                    z-index: 99997 !important; /* below seam/toggle */
+                    border-radius: 2px !important;
+                    opacity: 0.9 !important;
+                }
+                /* When sidebar open, rail sits slightly inside content area */
+                :root:not(:has(#vb-desktop-chk:checked)) .vb-rail-green { left: calc(var(--vb-sidebar-w, 336px) + 16px) !important; }
+                /* When sidebar closed, keep it near the left app edge */
+                :root:has(#vb-desktop-chk:checked) .vb-rail-green { left: 16px !important; }
+            }
+            @media (max-width: 992px) { .vb-seam-line, .vb-rail-green { display: none !important; } }
+
+            /* ---------- 2) Navigation radios: gentle alignment (preserve layout) ---------- */
+            /* Keep existing look; only normalize spacing for consistent circle column */
+            section[data-testid="stSidebar"] .stRadio > div[role="radiogroup"]{
+                margin: 0.25rem 0 !important;
+            }
             section[data-testid="stSidebar"] .stRadio > div[role="radiogroup"] label{
                 display: flex !important;
                 align-items: center !important;
                 gap: 0.5rem !important;
-                padding: 0.5rem 0.875rem !important; /* compact, consistent */
-                margin: 0.25rem 0 !important;
-                min-height: 40px !important;         /* accessible touch target */
-                border-radius: 12px !important;
-                background: transparent !important;
+                padding: 0.375rem 0.875rem !important;
+                margin: 0.125rem 0 !important;
+                white-space: nowrap !important;
                 writing-mode: horizontal-tb !important;
                 text-orientation: mixed !important;
-                white-space: nowrap !important;      /* keep one line */
-                overflow: visible !important;
-                line-height: 1.3 !important;
-                box-shadow: none !important;
-                transform: none !important;          /* kill any horizontal nudge on hover/active */
             }
-            /* Radio glyph sizing and spacing */
             section[data-testid="stSidebar"] .stRadio > div[role="radiogroup"] label input[type="radio"]{
                 width: 18px !important;
                 height: 18px !important;
                 flex: 0 0 auto !important;
+                margin: 0 0.625rem 0 0 !important; /* fixed space before text */
             }
-            /* Text node rules (prevent vertical stacking) */
             section[data-testid="stSidebar"] .stRadio > div[role="radiogroup"] label span,
             section[data-testid="stSidebar"] .stRadio > div[role="radiogroup"] label div{
                 display: inline-flex !important;
@@ -3703,8 +3791,33 @@ def inject_supreme_sidebar_and_audio_fix():
         (function(){
             'use strict';
 
-            // 3) Ensure audio player appears after Pro Recorder actions.
-            // Observe DOM for incoming stAudio and ensure it's visible and scrolled into view once.
+            // 🎯 PART 1: GLOBAL SEAM OVERLAY (aligned to toggle via CSS var)
+            // Create once and anchor to viewport using --vb-sidebar-w
+            (function ensureSeam(){
+                if (document.querySelector('.vb-seam-line')) return;
+                const seam = document.createElement('div');
+                seam.className = 'vb-seam-line';
+                document.body.appendChild(seam);
+                console.log('[VB] ✅ Seam overlay created');
+            })();
+
+            // 🎯 PART 1b: GREEN CONTENT RAIL (visual accent in content area)
+            (function ensureGreenRail(){
+                if (document.querySelector('.vb-rail-green')) return;
+                const rail = document.createElement('div');
+                rail.className = 'vb-rail-green';
+                document.body.appendChild(rail);
+                console.log('[VB] ✅ Green rail created');
+            })();
+
+            // 🎯 PART 2: No JS needed for radios (CSS-only gentle alignment above)
+
+            // 🎯 PART 3: MOBILE PRO RECORDER FIX (audio player injection)
+
+            let capturedBlob = null;
+            let capturedBlobURL = null;
+
+            // 3a) Force-reveal any Streamlit audio players (belt & suspenders)
             const once = new Set();
             const revealAudio = (node) => {
                 if (!node || once.has(node)) return;
@@ -3716,21 +3829,21 @@ def inject_supreme_sidebar_and_audio_fix():
                     const audio = node.querySelector('audio');
                     if (audio){
                         audio.controls = true;
-                        // Scroll gently into view without shifting layout
                         setTimeout(() => {
                             node.scrollIntoView({behavior:'smooth', block:'nearest', inline:'nearest'});
                         }, 120);
                     }
+                    console.log('[VB] ✅ Revealed Streamlit audio player');
                 }catch(e){}
             };
 
-                    const mo = new MutationObserver((mList) => {
+            const mo = new MutationObserver((mList) => {
                 for(const m of mList){
                     m.addedNodes && m.addedNodes.forEach(n => {
                         if (!(n instanceof HTMLElement)) return;
-                                if (n.matches?.('[data-testid="stAudio"], [data-testid="stAudioPlayer"]')) revealAudio(n);
-                                const maybe = n.querySelector?.('[data-testid="stAudio"], [data-testid="stAudioPlayer"]');
-                                if (maybe) revealAudio(maybe);
+                        if (n.matches?.('[data-testid="stAudio"], [data-testid="stAudioPlayer"]')) revealAudio(n);
+                        const maybe = n.querySelector?.('[data-testid="stAudio"], [data-testid="stAudioPlayer"]');
+                        if (maybe) revealAudio(maybe);
                     });
                 }
             });
@@ -3739,17 +3852,145 @@ def inject_supreme_sidebar_and_audio_fix():
                 mo.observe(document.body, {childList:true, subtree:true});
             }
 
-            // Add a small, elegant note near typical recorder containers (non-destructive).
+            // 3b) NUCLEAR: Inject manual player when Streamlit fails
+            function findRecorderContainer(){
+                const candidates = Array.from(document.querySelectorAll('div, section, [data-testid]'));
+                return candidates.find(el => {
+                    const text = (el.textContent || '').toLowerCase();
+                    return (text.includes('captured') && text.includes('kb')) || 
+                           text.includes('pro recorder') ||
+                           el.querySelector('canvas');
+                });
+            }
+
+            function injectManualAudioPlayer(audioBlob){
+                if (!audioBlob) return;
+                console.log('[VB] 🎯 Injecting manual audio player, blob size:', audioBlob.size);
+                
+                const container = findRecorderContainer();
+                if (!container) {
+                    console.warn('[VB] Could not find recorder container');
+                    return;
+                }
+
+                if (document.getElementById('vb-manual-audio-player')) {
+                    console.log('[VB] Player already exists, updating');
+                    const existing = document.getElementById('vb-manual-audio-player');
+                    const existingAudio = existing.querySelector('audio');
+                    if (existingAudio && audioBlob) {
+                        const newURL = URL.createObjectURL(audioBlob);
+                        existingAudio.src = newURL;
+                        existingAudio.load();
+                    }
+                    return;
+                }
+
+                const audioURL = URL.createObjectURL(audioBlob);
+                capturedBlobURL = audioURL;
+
+                const playerDiv = document.createElement('div');
+                playerDiv.id = 'vb-manual-audio-player';
+                playerDiv.style.cssText = 'margin:1rem 0;padding:1rem;background:#f8fafc;border:2px solid #1a365d;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.1);';
+
+                playerDiv.innerHTML = '<div style="font-weight:700;color:#1a365d;margin-bottom:0.5rem;font-size:14px;">✅ Recording Complete</div><audio controls style="width:100%;margin-bottom:0.75rem;border-radius:8px;"><source src="' + audioURL + '" type="audio/wav"><source src="' + audioURL + '" type="audio/webm"><source src="' + audioURL + '" type="audio/mp4">Your browser does not support audio playback.</audio><button id="vb-download-recording" style="width:100%;padding:0.75rem;background:linear-gradient(135deg,#1a365d 0%,#2563eb 100%);color:white;border:none;border-radius:10px;font-weight:700;font-size:16px;cursor:pointer;box-shadow:0 4px 8px rgba(0,0,0,0.15);">⬇️ Download Recording</button>';
+
+                const waveform = container.querySelector('canvas');
+                if (waveform && waveform.parentNode) {
+                    waveform.parentNode.insertBefore(playerDiv, waveform.nextSibling);
+                } else {
+                    container.appendChild(playerDiv);
+                }
+
+                setTimeout(() => { playerDiv.scrollIntoView({behavior:'smooth',block:'center'}); }, 150);
+
+                const downloadBtn = document.getElementById('vb-download-recording');
+                if (downloadBtn) {
+                    downloadBtn.addEventListener('click', function(){
+                        try {
+                            const a = document.createElement('a');
+                            a.href = audioURL;
+                            a.download = 'vocalbrand-recording-' + Date.now() + '.wav';
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            downloadBtn.textContent = '✅ Downloaded!';
+                            downloadBtn.style.background = '#10b981';
+                            setTimeout(() => {
+                                downloadBtn.textContent = '⬇️ Download Recording';
+                                downloadBtn.style.background = 'linear-gradient(135deg,#1a365d 0%,#2563eb 100%)';
+                            }, 2000);
+                        } catch(err) {
+                            console.error('[VB] Download failed:', err);
+                            alert('Download failed. Try a different browser.');
+                        }
+                    });
+                }
+
+                console.log('[VB] ✅ Manual player injected');
+            }
+
+            // 3c) Intercept MediaRecorder to capture blob
+            if (window.MediaRecorder && !window.MediaRecorder.__vbPatched) {
+                const OriginalMR = window.MediaRecorder;
+                window.MediaRecorder = function(...args) {
+                    const recorder = new OriginalMR(...args);
+                    const origStop = recorder.stop.bind(recorder);
+                    const origOnData = recorder.ondataavailable;
+                    
+                    recorder.ondataavailable = function(event) {
+                        if (event.data && event.data.size > 0) {
+                            console.log('[VB] Captured blob:', event.data.size, 'bytes');
+                            capturedBlob = event.data;
+                            setTimeout(() => { if (capturedBlob) injectManualAudioPlayer(capturedBlob); }, 800);
+                        }
+                        if (origOnData) origOnData.call(recorder, event);
+                    };
+                    
+                    recorder.stop = function() {
+                        console.log('[VB] MediaRecorder.stop() intercepted');
+                        return origStop();
+                    };
+                    
+                    return recorder;
+                };
+                Object.setPrototypeOf(window.MediaRecorder, OriginalMR);
+                Object.setPrototypeOf(window.MediaRecorder.prototype, OriginalMR.prototype);
+                window.MediaRecorder.__vbPatched = true;
+                console.log('[VB] ✅ MediaRecorder patched');
+            }
+
+            // 3d) Monitor Stop button clicks
+            document.addEventListener('click', function(e){
+                const target = e.target;
+                if (!target) return;
+                const text = (target.textContent || '').trim().toLowerCase();
+                if (text === 'stop' || text.includes('stop recording')) {
+                    console.log('[VB] Stop clicked, waiting for blob...');
+                    let attempts = 0;
+                    const pollInterval = setInterval(() => {
+                        attempts++;
+                        if (capturedBlob) {
+                            clearInterval(pollInterval);
+                            injectManualAudioPlayer(capturedBlob);
+                        } else if (attempts > 20) {
+                            clearInterval(pollInterval);
+                            console.warn('[VB] No blob after 10s');
+                        }
+                    }, 500);
+                }
+            }, true);
+
+            // 3e) Guidance note
             function placeRecorderNote(){
                 const texts = ['Record','Recorder','Start recording','Pro Recorder'];
-                const candidates = Array.from(document.querySelectorAll('button, [role="button"], h3, h4, label, p'))
+                const candidates = Array.from(document.querySelectorAll('button,[role="button"],h3,h4,label,p'))
                     .filter(el => texts.some(t => (el.textContent || '').toLowerCase().includes(t.toLowerCase())));
                 if (!candidates.length) return;
                 const anchor = candidates[0];
                 if (anchor && !document.querySelector('.vb-recorder-note')){
                     const chip = document.createElement('div');
                     chip.className = 'vb-recorder-note';
-                    chip.innerHTML = 'Note: If the audio button does not appear after recording, <b>refresh</b> this page or open in your device browser (Safari/Chrome).';
+                    chip.innerHTML = '💡 <b>Mobile:</b> Audio player appears below after recording with play + download.';
                     anchor.parentNode?.insertBefore(chip, anchor.nextSibling);
                 }
             }
@@ -3759,6 +4000,8 @@ def inject_supreme_sidebar_and_audio_fix():
             } else {
                 placeRecorderNote();
             }
+
+            console.log('[VB] 🎯 Supreme Mobile Pro Recorder Fix loaded');
         })();
         </script>
         """
