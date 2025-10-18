@@ -3814,8 +3814,8 @@ def inject_supreme_sidebar_and_audio_fix():
 
             // 🎯 PART 3: MOBILE PRO RECORDER FIX (audio player injection)
 
-            let capturedBlob = null;
-            let capturedBlobURL = null;
+            let capturedBlob = window.__vbCapturedBlob || null;
+            let capturedBlobURL = window.__vbCapturedBlobURL || null;
 
             // 3a) Force-reveal any Streamlit audio players (belt & suspenders)
             const once = new Set();
@@ -3844,6 +3844,9 @@ def inject_supreme_sidebar_and_audio_fix():
                         if (n.matches?.('[data-testid="stAudio"], [data-testid="stAudioPlayer"]')) revealAudio(n);
                         const maybe = n.querySelector?.('[data-testid="stAudio"], [data-testid="stAudioPlayer"]');
                         if (maybe) revealAudio(maybe);
+                        if (capturedBlob && !document.getElementById('vb-manual-audio-player')) {
+                            setTimeout(() => injectManualAudioPlayer(capturedBlob), 200);
+                        }
                     });
                 }
             });
@@ -3878,15 +3881,24 @@ def inject_supreme_sidebar_and_audio_fix():
                     const existing = document.getElementById('vb-manual-audio-player');
                     const existingAudio = existing.querySelector('audio');
                     if (existingAudio && audioBlob) {
+                        try {
+                            if (capturedBlobURL) URL.revokeObjectURL(capturedBlobURL);
+                        } catch {}
                         const newURL = URL.createObjectURL(audioBlob);
+                        capturedBlobURL = newURL;
+                        window.__vbCapturedBlobURL = newURL;
                         existingAudio.src = newURL;
                         existingAudio.load();
                     }
                     return;
                 }
 
+                try {
+                    if (capturedBlobURL) URL.revokeObjectURL(capturedBlobURL);
+                } catch {}
                 const audioURL = URL.createObjectURL(audioBlob);
                 capturedBlobURL = audioURL;
+                window.__vbCapturedBlobURL = audioURL;
 
                 const playerDiv = document.createElement('div');
                 playerDiv.id = 'vb-manual-audio-player';
@@ -3941,6 +3953,12 @@ def inject_supreme_sidebar_and_audio_fix():
                         if (event.data && event.data.size > 0) {
                             console.log('[VB] Captured blob:', event.data.size, 'bytes');
                             capturedBlob = event.data;
+                            window.__vbCapturedBlob = event.data;
+                            try {
+                                if (capturedBlobURL) URL.revokeObjectURL(capturedBlobURL);
+                            } catch {}
+                            capturedBlobURL = null;
+                            window.__vbCapturedBlobURL = null;
                             setTimeout(() => { if (capturedBlob) injectManualAudioPlayer(capturedBlob); }, 800);
                         }
                         if (origOnData) origOnData.call(recorder, event);
@@ -3964,6 +3982,20 @@ def inject_supreme_sidebar_and_audio_fix():
                 const target = e.target;
                 if (!target) return;
                 const text = (target.textContent || '').trim().toLowerCase();
+                if (text === 'start' || text.includes('start recording')) {
+                    capturedBlob = null;
+                    window.__vbCapturedBlob = null;
+                    if (capturedBlobURL) {
+                        try { URL.revokeObjectURL(capturedBlobURL); } catch {}
+                    }
+                    capturedBlobURL = null;
+                    window.__vbCapturedBlobURL = null;
+                    const existing = document.getElementById('vb-manual-audio-player');
+                    if (existing && existing.parentNode) {
+                        existing.parentNode.removeChild(existing);
+                    }
+                    return;
+                }
                 if (text === 'stop' || text.includes('stop recording')) {
                     console.log('[VB] Stop clicked, waiting for blob...');
                     let attempts = 0;
@@ -3999,6 +4031,11 @@ def inject_supreme_sidebar_and_audio_fix():
                 document.addEventListener('DOMContentLoaded', placeRecorderNote);
             } else {
                 placeRecorderNote();
+            }
+
+            // Restore manual player after reruns (Streamlit re-hydration)
+            if (capturedBlob) {
+                setTimeout(() => injectManualAudioPlayer(capturedBlob), 300);
             }
 
             console.log('[VB] 🎯 Supreme Mobile Pro Recorder Fix loaded');
