@@ -703,12 +703,14 @@ def render_audio_capture_area() -> None:
         st.info(
             (
                 "Using Pro Recorder (live timer + waveform).\n\n"
-                "Tip: If the sample doesn’t auto-appear below, click ‘Download recording’ and then upload it in the drop zone to proceed."
+                "After you stop, the audio bar stays visible here. Tap ‘Use recording’ to lock it in and continue.\n\n"
+                "Tip: If something blocks ingestion, you can also click ‘Download recording’ and upload it below."
             )
             if force_pro
             else (
                 "Native recorder unavailable: %s. Using built-in HTML5 fallback (refresh if permissions denied).\n\n"
-                "Tip: If the sample doesn’t auto-appear below, click ‘Download recording’ and then upload it in the drop zone to proceed."
+                "After you stop, the audio bar stays visible here. Tap ‘Use recording’ to lock it in and continue.\n\n"
+                "Tip: If something blocks ingestion, you can also click ‘Download recording’ and upload it below."
             )
             % (RECORDER_MSG or "component missing"),
             icon="ℹ️",
@@ -720,7 +722,7 @@ def render_audio_capture_area() -> None:
 <script>
 (function(){
     const rootId = "__FALLBACK_ID__";
-    function init(){
+        function init(){
         const container = document.getElementById(rootId);
         if (!container) { setTimeout(init, 50); return; }
         if (container.dataset.vbInit === '1') return;
@@ -821,8 +823,11 @@ def render_audio_capture_area() -> None:
                 <span id="vb_level">Level: -- dB | 0.0s</span>
             </div>
             <canvas id="vb_canvas" width="600" height="64"></canvas>
-            <audio id="vb_play" controls style="margin-top:1rem;width:100%;display:none;background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;padding:0.5rem;"></audio>
-            <div id="vb_download_wrap" style="display:none;"><a id="vb_download" download="vocalbrand_recording.webm">⬇️ Download recording</a></div>
+                        <audio id="vb_play" controls style="margin-top:1rem;width:100%;display:none;background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;padding:0.5rem;"></audio>
+                        <div id="vb_download_wrap" style="display:none;display:flex;gap:.5rem;align-items:center;justify-content:center;flex-wrap:wrap;margin-top:0.75rem;margin-bottom:0.75rem;">
+                            <a id="vb_download" download="vocalbrand_recording.webm">⬇️ Download recording</a>
+                            <button id="vb_use_btn" class="vbrec-btn vbrec-btn--start" style="min-width:180px;">✅ Use recording</button>
+                        </div>
         `;
         const statusEl = container.querySelector('#vb_status');
         const levelEl = container.querySelector('#vb_level');
@@ -831,16 +836,149 @@ def render_audio_capture_area() -> None:
         const audioEl = container.querySelector('#vb_play');
         const canvas = container.querySelector('#vb_canvas');
         const ctx = canvas.getContext('2d');
-        let mediaRecorder, chunks=[], analyser, dataArray, rafId, startedAt=0;
+        const STREAMLIT = window.Streamlit || null;
+        let mediaRecorder, chunks = [], analyser, dataArray, rafId, startedAt = 0;
+        const STORAGE_KEY = 'vb_pro_payload_v1';
+        let pendingPayload = null; // {b64, mime, size, filename, ext}
+        let currentObjectUrl = null;
+        let autoSendScheduled = false;
+        let sending = false;
+
         function log(m){ statusEl.textContent = m; }
         function postHeight(){
-            try{ window.parent.postMessage({isStreamlitMessage:true, type:'streamlit:setFrameHeight', height: document.body.scrollHeight }, '*'); }catch(e){}
+            if (STREAMLIT && STREAMLIT.setFrameHeight) {
+                try { STREAMLIT.setFrameHeight(document.body.scrollHeight); } catch(_e) {}
+            } else {
+                try { window.parent.postMessage({isStreamlitMessage:true, type:'streamlit:setFrameHeight', height: document.body.scrollHeight }, '*'); } catch(_e) {}
+            }
         }
         function postReady(){
-            try{ window.parent.postMessage({isStreamlitMessage:true, type:'streamlit:componentReady'}, '*'); }catch(e){}
+            if (STREAMLIT && STREAMLIT.setComponentReady) {
+                try { STREAMLIT.setComponentReady(); } catch(_e) {}
+            } else {
+                try { window.parent.postMessage({isStreamlitMessage:true, type:'streamlit:componentReady'}, '*'); } catch(_e) {}
+            }
         }
         function postValue(val){
-            try{ window.parent.postMessage({isStreamlitMessage:true, type:'streamlit:setComponentValue', value: val}, '*'); }catch(e){}
+            if (STREAMLIT && STREAMLIT.setComponentValue) {
+                try { STREAMLIT.setComponentValue(val); } catch(_e) {}
+            } else {
+                try { window.parent.postMessage({isStreamlitMessage:true, type:'streamlit:setComponentValue', value: val}, '*'); } catch(_e) {}
+            }
+        }
+
+        function computeExt(mime){
+            const m = (mime || '').toLowerCase();
+            if (m.includes('wav')) return 'wav';
+            if (m.includes('mp4') || m.includes('mpg4') || m.includes('m4a')) return 'mp4';
+            if (m.includes('aac')) return 'aac';
+            if (m.includes('mpeg') || m.includes('mp3')) return 'mp3';
+            if (m.includes('ogg')) return 'ogg';
+            return 'webm';
+        }
+
+        function savePayload(payload){
+            try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(payload)); } catch(_e){}
+        }
+
+        function loadPayload(){
+            try {
+                const raw = sessionStorage.getItem(STORAGE_KEY);
+                if (!raw) return null;
+                const parsed = JSON.parse(raw);
+                if (parsed && parsed.b64) return parsed;
+            } catch(_e){}
+            return null;
+        }
+
+        function revokeUrl(){
+            if (currentObjectUrl) {
+                try { URL.revokeObjectURL(currentObjectUrl); } catch(_e){}
+                currentObjectUrl = null;
+            }
+        }
+
+        function showPayload(payload){
+            if (!payload || !payload.b64) return;
+            try {
+                const bin = atob(payload.b64);
+                const len = bin.length;
+                const bytes = new Uint8Array(len);
+                for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
+                const blob = new Blob([bytes], {type: payload.mime || 'audio/webm'});
+                revokeUrl();
+                const url = URL.createObjectURL(blob);
+                currentObjectUrl = url;
+                audioEl.src = url;
+                audioEl.style.display = 'block';
+                const dw = container.querySelector('#vb_download_wrap');
+                const dl = container.querySelector('#vb_download');
+                if (dw && dl) {
+                    dw.style.display = 'flex';
+                    const ext = payload.ext || computeExt(payload.mime || '');
+                    const fname = payload.filename || `vocalbrand-recording.${ext}`;
+                    dl.href = url;
+                    dl.download = fname;
+                }
+                const kb = payload.size ? (payload.size / 1024) : (len / 1024);
+                statusEl.textContent = 'Captured ' + kb.toFixed(1) + ' kB';
+            } catch(err) {
+                console.warn('[VB] Failed to render payload', err);
+            }
+        }
+
+        function applyPayload(payload, opts = {}){
+            if (!payload || !payload.b64) return;
+            const ext = payload.ext || computeExt(payload.mime || '');
+            const filename = payload.filename || `vocalbrand-recording.${ext}`;
+            pendingPayload = {
+                b64: payload.b64,
+                mime: payload.mime || 'audio/webm',
+                size: payload.size || 0,
+                ext,
+                filename,
+            };
+            autoSendScheduled = false;
+            sending = false;
+            showPayload(pendingPayload);
+            savePayload(pendingPayload);
+            postHeight();
+            scheduleAutoSend(opts.forceRetry === true);
+        }
+
+        function scheduleAutoSend(force){
+            if (!pendingPayload) return;
+            if (autoSendScheduled && !force) return;
+            autoSendScheduled = true;
+            let attempts = 0;
+            const attempt = ()=>{
+                if (!pendingPayload) return;
+                attempts += 1;
+                sendPayload('auto');
+                if (attempts < 5 && pendingPayload) {
+                    setTimeout(attempt, 1200);
+                } else {
+                    autoSendScheduled = false;
+                }
+            };
+            setTimeout(attempt, force ? 100 : 450);
+        }
+
+        function sendPayload(origin){
+            if (!pendingPayload || sending) return;
+            sending = true;
+            try {
+                const ta = window.parent.document && window.parent.document.getElementById('pro_recorder_payload');
+                if (ta) {
+                    ta.value = 'data:' + (pendingPayload.mime || 'audio/webm') + ';base64,' + pendingPayload.b64;
+                    ta.dispatchEvent(new Event('input',{bubbles:true}));
+                }
+            } catch(_e) {}
+            try { postValue({b64: pendingPayload.b64, size: pendingPayload.size || 0, mime: pendingPayload.mime || 'audio/webm'}); } catch(_e) {}
+            pendingPayload.lastSent = Date.now();
+            savePayload(pendingPayload);
+            setTimeout(()=>{ sending = false; }, 1200);
+            log(origin === 'manual' ? 'Locking in recording...' : 'Locking in recording (auto)...');
         }
         function meter(){
             if(!analyser) return;
@@ -862,6 +1000,59 @@ def render_audio_capture_area() -> None:
             ctx.stroke();
             rafId = requestAnimationFrame(meter);
         }
+        // Helper: encode an AudioBuffer to 16-bit PCM WAV (little-endian)
+        function encodeWAV(audioBuffer){
+            const numChannels = audioBuffer.numberOfChannels;
+            const sampleRate = audioBuffer.sampleRate;
+            const length = audioBuffer.length;
+            const bytesPerSample = 2; // 16-bit PCM
+            const blockAlign = numChannels * bytesPerSample;
+            const dataSize = length * blockAlign;
+            const buffer = new ArrayBuffer(44 + dataSize);
+            const view = new DataView(buffer);
+
+            function writeString(view, offset, string){
+                for (let i = 0; i < string.length; i++) {
+                    view.setUint8(offset + i, string.charCodeAt(i));
+                }
+            }
+
+            let offset = 0;
+            writeString(view, offset, 'RIFF'); offset += 4;
+            view.setUint32(offset, 36 + dataSize, true); offset += 4; // ChunkSize
+            writeString(view, offset, 'WAVE'); offset += 4;
+            // fmt chunk
+            writeString(view, offset, 'fmt '); offset += 4;
+            view.setUint32(offset, 16, true); offset += 4; // Subchunk1Size (16 for PCM)
+            view.setUint16(offset, 1, true); offset += 2;  // AudioFormat (1 = PCM)
+            view.setUint16(offset, numChannels, true); offset += 2;
+            view.setUint32(offset, sampleRate, true); offset += 4;
+            view.setUint32(offset, sampleRate * blockAlign, true); offset += 4; // ByteRate
+            view.setUint16(offset, blockAlign, true); offset += 2; // BlockAlign
+            view.setUint16(offset, bytesPerSample * 8, true); offset += 2; // BitsPerSample
+            // data chunk
+            writeString(view, offset, 'data'); offset += 4;
+            view.setUint32(offset, dataSize, true); offset += 4;
+
+            // Interleave channels
+            const channels = [];
+            for (let c = 0; c < numChannels; c++) {
+                channels.push(audioBuffer.getChannelData(c));
+            }
+            let pos = 44;
+            for (let i = 0; i < length; i++) {
+                for (let c = 0; c < numChannels; c++) {
+                    let sample = channels[c][i];
+                    // clamp
+                    sample = Math.max(-1, Math.min(1, sample));
+                    // scale to 16-bit signed int
+                    view.setInt16(pos, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+                    pos += 2;
+                }
+            }
+            return buffer;
+        }
+
         startBtn.onclick = async ()=>{
             try{
                 const stream = await navigator.mediaDevices.getUserMedia({audio:true});
@@ -872,8 +1063,24 @@ def render_audio_capture_area() -> None:
                 src.connect(analyser);
                 // Initialize MediaRecorder and capture chunks (PRO RECORDER — LIGHT THEME)
                 chunks = [];
+                // Pick a widely-supported MIME, preferring webm+opus but falling back to mp4/aac for iOS Safari
+                const mimeCandidates = [
+                    'audio/webm;codecs=opus',
+                    'audio/webm',
+                    'audio/mp4;codecs=mp4a.40.2',
+                    'audio/mp4',
+                    'audio/aac',
+                    'audio/mpeg',
+                    'audio/ogg',
+                    'audio/wav'
+                ];
+                let chosenMime = '';
                 try {
-                    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+                    const isSup = (m) => { try { return !!(window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m)); } catch(e){ return false; } };
+                    chosenMime = mimeCandidates.find(isSup) || '';
+                } catch(e) { chosenMime = ''; }
+                try {
+                    mediaRecorder = chosenMime ? new MediaRecorder(stream, { mimeType: chosenMime }) : new MediaRecorder(stream);
                 } catch(e) {
                     // Fallback without mimeType if browser rejects the option
                     mediaRecorder = new MediaRecorder(stream);
@@ -881,31 +1088,76 @@ def render_audio_capture_area() -> None:
                 mediaRecorder.ondataavailable = (ev)=>{ if (ev.data && ev.data.size) { chunks.push(ev.data); } };
                 mediaRecorder.onstop = async ()=>{
                     cancelAnimationFrame(rafId);
-                    const blob = new Blob(chunks,{type:'audio/webm'});
+                    // Prefer the recorder-reported type if present
+                    const effectiveMime = (mediaRecorder && mediaRecorder.mimeType) ? mediaRecorder.mimeType : (chosenMime || 'audio/webm');
+                    const blob = new Blob(chunks,{type: effectiveMime});
                     const ab = await blob.arrayBuffer();
-                    const bytes = new Uint8Array(ab);
-                    let binary=''; for(let i=0;i<bytes.length;i++) binary += String.fromCharCode(bytes[i]);
-                    const b64 = btoa(binary);
-                    const url = URL.createObjectURL(blob);
-                    audioEl.src = url; audioEl.style.display='block';
-                    const dw = container.querySelector('#vb_download_wrap');
-                    const dl = container.querySelector('#vb_download');
-                    if (dw && dl) { dw.style.display='block'; dl.href = url; }
-                    statusEl.textContent = 'Captured ' + (bytes.length/1000).toFixed(1) + ' kB';
-                    // Also write to a hidden textbox in the parent DOM if available (data URL)
-                    try{
-                        const ta = window.parent.document.querySelector('textarea[data-testid="stTextArea"]#pro_recorder_payload');
-                        if(ta){ ta.value = 'data:audio/webm;base64,' + b64; ta.dispatchEvent(new Event('input',{bubbles:true})); }
-                    }catch(e){}
-                    postValue({b64: b64, size: bytes.length});
-                    postHeight();
+                    // Try to decode in-browser and re-encode to WAV for maximum compatibility
+                    let wavBuffer = null;
+                    try {
+                        const ac = new (window.AudioContext||window.webkitAudioContext)();
+                        const decoded = await ac.decodeAudioData(ab.slice(0));
+                        wavBuffer = encodeWAV(decoded);
+                    } catch(e) {
+                        wavBuffer = null;
+                    }
+                    if (wavBuffer) {
+                        const wbytes = new Uint8Array(wavBuffer);
+                        let wbin=''; for(let i=0;i<wbytes.length;i++) wbin += String.fromCharCode(wbytes[i]);
+                        const wb64 = btoa(wbin);
+                        applyPayload({
+                            b64: wb64,
+                            mime: 'audio/wav',
+                            size: wbytes.length,
+                            filename: 'vocalbrand-recording.wav',
+                            ext: 'wav',
+                            sent: false,
+                        });
+                    } else {
+                        // Fallback to original blob path
+                        const bytes = new Uint8Array(ab);
+                        let binary=''; for(let i=0;i<bytes.length;i++) binary += String.fromCharCode(bytes[i]);
+                        const b64 = btoa(binary);
+                        applyPayload({
+                            b64,
+                            mime: effectiveMime,
+                            size: bytes.length,
+                            sent: false,
+                        });
+                    }
                 };
                 mediaRecorder.start(); startedAt = performance.now(); log('Recording...');
                 startBtn.disabled=true; stopBtn.disabled=false; meter();
             }catch(err){ log('Error: '+err.message); }
         };
         stopBtn.onclick=()=>{ if(mediaRecorder && mediaRecorder.state!=='inactive') mediaRecorder.stop(); startBtn.disabled=false; stopBtn.disabled=true; log('Processing...'); };
+
+        // When user explicitly confirms, send payload to Streamlit and trigger rerun
+        container.addEventListener('click', (e)=>{
+            const t = e.target && e.target.closest ? e.target.closest('#vb_use_btn') : null;
+            if (!t) return;
+            if (!pendingPayload || !pendingPayload.b64) { log('No recording to use yet.'); return; }
+            sendPayload('manual');
+        }, {capture:true});
         postReady(); postHeight();
+        window.addEventListener('message', (event)=>{
+            try {
+                if (!event || !event.data) return;
+                if (event.origin && event.origin !== window.location.origin) return;
+                const data = event.data;
+                if (typeof data !== 'object' || data === null) return;
+                if (data.source === 'vocalbrand' && data.type === 'VB_PRO_INGESTED') {
+                    pendingPayload = null;
+                    try { sessionStorage.removeItem(STORAGE_KEY); } catch(_e) {}
+                    revokeUrl();
+                    log('Recording locked in ✅');
+                }
+            } catch(_e) {}
+        });
+        const restored = loadPayload();
+        if (restored) {
+            applyPayload(restored, {forceRetry: true});
+        }
     }
     init();
 })();
@@ -914,21 +1166,24 @@ def render_audio_capture_area() -> None:
         # Capture value posted back from the HTML component (via postMessage streamlit:setComponentValue)
         pro_component_val = st.components.v1.html(
             js_template.replace("__FALLBACK_ID__", fallback_id),
-            height=260,
+            height=420,
             scrolling=False,
         )
         st.caption(
             "Pro Recorder provides live timing + waveform. After stopping, a ‘Download recording’ link appears; if auto‑ingest doesn’t trigger, download and upload the file below to continue."
         )
-        # Hidden receiver for data URL (data:audio/webm;base64,....) — kept invisible
-        pro_val = st.text_input(
+        # Hidden receiver for data URL (data:audio/<mime>;base64,....) — kept invisible
+        # Use text_area so the DOM creates a <textarea> element; JS fallback writes here
+        pro_val = st.text_area(
             "pro_recorder_b64_hidden",
             key="pro_recorder_payload",
             label_visibility="collapsed",
+            height=1,
         )
         last_hash_key = "last_fallback_b64_hash"
         # Prefer direct component value; fallback to hidden textarea if needed
         b64_from_component: Optional[str] = None
+        mime_from_component: Optional[str] = None
         if isinstance(pro_component_val, dict) and pro_component_val.get("b64"):
             try:
                 size = int(pro_component_val.get("size") or 0)
@@ -937,8 +1192,14 @@ def render_audio_capture_area() -> None:
             # basic sanity: accept if > 1KB
             if size > 1024:
                 b64_from_component = str(pro_component_val["b64"])  # plain base64 without data URL prefix
+                if pro_component_val.get("mime"):
+                    mime_from_component = str(pro_component_val["mime"]).strip()
         if b64_from_component:
-            pro_val = "data:audio/webm;base64," + b64_from_component
+            # Compose a robust data URL using the provided MIME when available
+            if mime_from_component:
+                pro_val = f"data:{mime_from_component};base64," + b64_from_component
+            else:
+                pro_val = "data:audio/webm;base64," + b64_from_component
         if pro_val:
             try:
                 # Accept data URL or plain base64
@@ -947,26 +1208,120 @@ def render_audio_capture_area() -> None:
                     b64 = b64.split(",", 1)[1]
                 current_hash = hashlib.sha1(b64.encode("utf-8")).hexdigest()
                 auto_needed = st.session_state.get(last_hash_key) != current_hash
-                force = st.button("Use Recording (Pro)", key="use_recording_pro_btn")
-                if auto_needed or force:
-                    raw_webm = base64.b64decode(b64)
-                    from pydub import AudioSegment  # type: ignore
-                    seg = AudioSegment.from_file(BytesIO(raw_webm), format="webm")
-                    wav_buf = BytesIO()
-                    seg.export(wav_buf, format="wav")
-                    wav_bytes = wav_buf.getvalue()
-                    meta = _ingest_audio_bytes(wav_bytes, source="pro_recorder", filename="recording.wav")
-                    _render_audio_feedback(meta, wav_bytes)
-                    st.session_state[last_hash_key] = current_hash
-                    st.success("Recording Locked In ✅", icon="✅")
+                
+                # 🎯 SURGICAL FIX: Preserve audio bytes BEFORE processing
+                if auto_needed:
+                    try:
+                        # Detect MIME from data URL (if present)
+                        inferred_format = None
+                        if pro_val.startswith("data:"):
+                            try:
+                                header = pro_val.split(",",1)[0]  # data:audio/<mime>;base64
+                                if ";base64" in header:
+                                    header = header.split(";",1)[0]
+                                if header.startswith("data:"):
+                                    header = header[len("data:"):]
+                                # header now like "audio/webm" or "audio/mp4" etc
+                                if "/" in header:
+                                    inferred_format = header.split("/",1)[1]
+                            except Exception:
+                                inferred_format = None
+                        raw_blob = base64.b64decode(b64)
+                        from pydub import AudioSegment  # type: ignore
+                        # Map common mimetypes to pydub formats
+                        fmt = (inferred_format or "webm").lower()
+                        if fmt in ("mp4","mpg4","m4a"):
+                            fmt = "mp4"
+                        elif fmt in ("aac",):
+                            fmt = "aac"
+                        elif fmt in ("mpeg","mp3"):
+                            fmt = "mp3"
+                        elif fmt in ("ogg",):
+                            fmt = "ogg"
+                        elif fmt in ("wav",):
+                            fmt = "wav"
+                        else:
+                            fmt = "webm"
+                        seg = AudioSegment.from_file(BytesIO(raw_blob), format=fmt)
+                        wav_buf = BytesIO()
+                        seg.export(wav_buf, format="wav")
+                        wav_bytes = wav_buf.getvalue()
+                        # STORE IN SESSION STATE FIRST - survives reruns
+                        st.session_state["pro_recorder_audio_preview"] = wav_bytes
+                        # Auto-ingest just like the native recorder so flow continues without extra clicks
+                        meta = _ingest_audio_bytes(wav_bytes, source="pro_recorder", filename="recording.wav")
+                        _render_audio_feedback(meta, wav_bytes)
+                        st.session_state[last_hash_key] = current_hash
+                        st.session_state["pro_ingested_hash"] = current_hash
+                        st.success("Recording Locked In ✅", icon="✅")
+                        st.markdown(
+                            """
+                            <script>
+                            (function(){
+                                try { window.sessionStorage && window.sessionStorage.removeItem('vb_pro_payload_v1'); } catch (_e) {}
+                                try {
+                                    const frames = window.frames || [];
+                                    for (let i = 0; i < frames.length; i++) {
+                                        try { frames[i].postMessage({source:'vocalbrand', type:'VB_PRO_INGESTED'}, '*'); } catch (_err) {}
+                                    }
+                                } catch (_e) {}
+                            })();
+                            </script>
+                            """,
+                            unsafe_allow_html=True,
+                        )
+                    except Exception as e:
+                        st.warning(f"Pro Recorder decode failed: {str(e)[:220]}")
+                
+                # Show persistent audio player if we have bytes
+                if "pro_recorder_audio_preview" in st.session_state:
+                    preview_bytes = st.session_state["pro_recorder_audio_preview"]
+                    st.markdown("### 🎵 Your Recording")
+                    st.audio(preview_bytes, format="audio/wav")
+                    
+                already_locked = st.session_state.get("pro_ingested_hash") == current_hash
+                if already_locked:
+                    st.info("Recording already locked in.")
+                else:
+                    force = st.button("Use Recording (Pro)", key="use_recording_pro_btn")
+                    if force:
+                        if "pro_recorder_audio_preview" in st.session_state:
+                            wav_bytes = st.session_state["pro_recorder_audio_preview"]
+                            meta = _ingest_audio_bytes(wav_bytes, source="pro_recorder", filename="recording.wav")
+                            _render_audio_feedback(meta, wav_bytes)
+                            st.success("Recording Locked In ✅", icon="✅")
+                            # Clear preview after use
+                            del st.session_state["pro_recorder_audio_preview"]
+                            st.session_state["pro_ingested_hash"] = current_hash
+                            st.markdown(
+                                """
+                                <script>
+                                (function(){
+                                    try { window.sessionStorage && window.sessionStorage.removeItem('vb_pro_payload_v1'); } catch (_e) {}
+                                    try {
+                                        const frames = window.frames || [];
+                                        for (let i = 0; i < frames.length; i++) {
+                                            try { frames[i].postMessage({source:'vocalbrand', type:'VB_PRO_INGESTED'}, '*'); } catch (_err) {}
+                                        }
+                                    } catch (_e) {}
+                                })();
+                                </script>
+                                """,
+                                unsafe_allow_html=True,
+                            )
+                        else:
+                            st.error("No recording found. Please record again.")
             except Exception as e:  # noqa: BLE001
                 msg = str(e)
                 if len(msg) > 220:
                     msg = msg[:220] + "…"
                 st.warning(f"Pro Recorder decode failed: {msg}")
-        # Show upload option and prevent further rendering when this Pro fallback is active
+        # Show upload option alongside Pro Recorder (no early return - allow cloning section)
         render_file_upload_fallback()
-        return
+        # 🎯 CRITICAL FIX: Don't return early! Let cloning section render if audio is ready
+        # Skip rendering native recorders below since Pro Recorder is active
+        return  # But return AFTER rendering upload, before native recorders
+    
     # Prefer st_audiorec if available; it returns raw wav bytes directly
     raw_bytes: Optional[bytes] = None
     
