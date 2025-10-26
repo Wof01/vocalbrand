@@ -1,1318 +1,5 @@
-
+"""Main Streamlit application for VocalBrand Supreme."""
 from __future__ import annotations
-# Note: Removed top-level docstring to avoid unintended rendering in UI
-
-import streamlit as st
-from error_handling import safe_execute, handle_error, RecordingError
-import time
-import numpy as np
-from io import BytesIO
-import wave
-import streamlit.components.v1 as components
-from datetime import datetime
-import os
-import logging
-import queue
-import pandas as pd
-from pathlib import Path
-from typing import Optional, Dict, Any, List, Tuple, Union
-from components.audio_recorder_pro import render_audio_recorder_pro
-
-# Centralized supported audio formats for all upload widgets
-ACCEPTED_AUDIO_EXTS: list[str] = [
-    "wav", "mp3", "m4a", "aac", "ogg", "flac", "aiff", "webm"
-]
-
-def accepted_formats_display() -> str:
-    return ", ".join(ext.upper() for ext in ACCEPTED_AUDIO_EXTS)
-
-
-def _maybe_force_flow_progression() -> None:
-    """Harden the flow so recording always advances beyond Step 1.
-
-    If audio bytes exist in any staging key and flow_state is still 'initial',
-    promote to 'processing' and rerun. This protects against rare cases where
-    the 'Use This Recording' click didn't trigger Streamlit's event cycle but
-    the audio is already available or recently captured.
-    """
-    try:
-        ss = st.session_state
-        if ss.get("flow_state", "initial") != "initial":
-            return
-        staged = ss.get("audio_data") or ss.get("pending_audio_bytes") or ss.get("pro_recorder_audio_preview")
-        if not staged:
-            return
-        # Normalize: if only pending/pro_preview exist, promote to audio_data
-        if not ss.get("audio_data"):
-            if ss.get("pending_audio_bytes"):
-                ss["audio_data"] = ss["pending_audio_bytes"]
-                if not ss.get("audio_meta"):
-                    ss["audio_meta"] = ss.get("pending_audio_meta") or {"source": "recorder"}
-            elif ss.get("pro_recorder_audio_preview"):
-                ss["audio_data"] = ss["pro_recorder_audio_preview"]
-                if not ss.get("audio_meta"):
-                    ss["audio_meta"] = {"source": "recorder", "filename": "recording.wav"}
-        ss["flow_state"] = "processing"
-        st.rerun()
-    except Exception:
-        # Never block UI if this helper fails
-        pass
-
-# Initialize session state defaults
-SESSION_DEFAULTS = {
-    # Cloning related
-    "clone_history": [],  # List of voice clone attempts
-    "clone_status": "",  # Last clone operation status
-    "clone_timestamp": "",  # ISO timestamp of last clone
-    "clone_voice_id": "",  # Active voice ID for generation
-    "clone_voice_label": "",  # User-provided label for active voice
-    
-    # Recording preferences
-    "trim_silence_toggle": False,  # If enabled, trim leading/trailing silence before cloning
-    "auto_clone_toggle": False,  # If enabled, auto-clone immediately after recording lock-in
-    "use_pro_recorder": True,  # Enable enhanced recorder with timer and waveform
-    
-    # Recording state
-    "recording_start": None,  # When recording started
-    "recording_duration": 0,  # Current recording duration
-    "recording_locked_in": False,  # Whether recording is finalized
-    "waveform_data": [],  # Store waveform visualization data
-    "audio_level": 0,  # Current audio input level
-    "recorder_initialized": False,  # Track recorder initialization
-    
-    # Audio data
-    "audio_data": None,  # Current audio data
-    "audio_source": None,  # Source of current audio (upload/record)
-    "ready_to_proceed": False,  # Whether audio is ready for cloning
-    "pending_audio_bytes": b"",  # Audio bytes waiting for processing
-    "pending_audio_meta": None,  # Metadata for pending audio
-    
-    # Processing state
-    "last_auto_clone_hash": "",  # To avoid double auto-clone on reruns
-    "last_recorder_type": None,  # Track last used recorder type for state management
-    "processing_complete": False  # Track whether processing is complete
-}
-
-def ensure_session_defaults():
-    """Ensure all session state defaults are initialized."""
-    for key, default in SESSION_DEFAULTS.items():
-        if key not in st.session_state:
-            st.session_state[key] = default.copy() if isinstance(default, (list, dict)) else default
-            
-def handle_audio_data(audio_data: Union[bytes, BytesIO], source: str, filename: str = "recording.wav") -> None:
-    """Process audio data and update session state."""
-    if not audio_data:
-        return
-        
-    if isinstance(audio_data, BytesIO):
-        audio_bytes = audio_data.getvalue()
-    else:
-        audio_bytes = audio_data
-        
-    st.session_state.pending_audio_bytes = audio_bytes
-    st.session_state.pending_audio_meta = {
-        "ok": True,
-        "filename": filename,
-        "type": "audio/wav",
-        "source": source
-    }
-    st.session_state.audio_data = audio_bytes
-    st.session_state.audio_source = source
-    st.session_state.ready_to_proceed = True
-
-# Initialize session state
-ensure_session_defaults()
-
-def get_pending_recording_from_browser() -> Optional[bytes]:
-    """
-    Attempt to retrieve recorded audio from browser localStorage.
-    
-    The JavaScript component stores audio as base64 in localStorage when the user
-    clicks "Use This Recording". This function creates JavaScript that will:
-    1. Check for audio in localStorage
-    2. Convert base64 to bytes
-    3. Store in Streamlit session state
-    4. Trigger a rerun with the audio data
-    
-    Returns:
-        bytes: The audio data if available, None otherwise
-    """
-    # Inject JavaScript to check for and transfer audio from localStorage
-    check_and_transfer_js = """
-    <script>
-    (function() {
-        // Check if audio is in localStorage and ready to transfer
-        const audioB64 = localStorage.getItem('vb_recorded_audio');
-        const recordingStatus = localStorage.getItem('vb_recording_ready');
-        
-        if (audioB64 && recordingStatus === '1' && audioB64.length > 100) {
-            // Extract base64 portion
-            let base64Data = audioB64;
-            if (audioB64.includes(',')) {
-                base64Data = audioB64.split(',')[1];
-            }
-            
-            // Store in window object for retrieval
-            try {
-                // Convert base64 to binary
-                const binaryString = atob(base64Data);
-                const len = binaryString.length;
-                const bytes = new Uint8Array(len);
-                for (let i = 0; i < len; i++) {
-                    bytes[i] = binaryString.charCodeAt(i);
-                }
-                
-                // Store compressed info in window
-                window.vb_audio_bytes_len = len;
-                window.vb_audio_b64_ready = true;
-                window.vb_audio_b64_data = base64Data;
-                
-                // Mark as transferred
-                localStorage.setItem('vb_recording_ready', '2');
-                
-                console.log('✅ VocalBrand audio ready in window:', len, 'bytes');
-            } catch (e) {
-                console.error('Audio transfer error:', e);
-            }
-        }
-    })();
-    </script>
-    """
-    
-    st.markdown(check_and_transfer_js, unsafe_allow_html=True)
-    
-    # Check session state for transferred audio
-    if st.session_state.get("vb_audio_bytes_pending"):
-        audio_bytes = st.session_state.vb_audio_bytes_pending
-        st.session_state.vb_audio_bytes_pending = None
-        return audio_bytes
-    
-    return None
-
-def render_audio_capture_area() -> Optional[Union[bytes, st.runtime.uploaded_file_manager.UploadedFile]]:
-    """Render world-class audio capture with pro recorder and elegant UI.
-    
-    CRITICAL FLOW FOR RECORDING AUDIO:
-    1. User records audio in JavaScript component
-    2. Clicks "Use This Recording" button
-    3. JavaScript stores audio as base64 in localStorage
-    4. JavaScript changes URL hash to trigger Streamlit reload
-    5. On reload, Python injects JavaScript that reads localStorage
-    6. JavaScript passes audio via query parameters back to Python
-    7. Python retrieves audio from query params and returns it
-    """
-    ensure_session_defaults()
-    
-    # CRITICAL: Check if query parameter indicates audio is present in browser storage
-    query_params = st.query_params
-    if query_params.get("vb_audio_present") == "true":
-        logging.info("🎯 Detected vb_audio_present=true in query params - AUDIO IS READY!")
-        
-        # IMMEDIATE EXTRACTION: Don't wait, extract it RIGHT NOW via JavaScript
-        extract_audio_immediate_js = """
-        <script>
-        (function() {
-            // Get audio from storage IMMEDIATELY
-            const audioB64 = sessionStorage.getItem('vb_audio_b64') || 
-                           localStorage.getItem('vb_recorded_audio') ||
-                           window.vb_audio_data;
-            
-            console.log('🎤 IMMEDIATE EXTRACTION starting...');
-            console.log('Audio found:', !!audioB64);
-            
-            if (audioB64 && audioB64.length > 100 && !window.vb_already_transferred) {
-                window.vb_already_transferred = true;
-                
-                console.log('📤 EXTRACTING audio to URL NOW!');
-                
-                try {
-                    // Extract base64 part
-                    let base64Data = audioB64;
-                    if (audioB64.includes(',')) {
-                        base64Data = audioB64.split(',')[1];
-                    }
-                    
-                    // Calculate size
-                    let audioBytes = 0;
-                    try {
-                        audioBytes = atob(base64Data).length;
-                    } catch (e) {
-                        console.error('Size calc error:', e);
-                    }
-                    
-                    console.log('✅ Audio size:', audioBytes, 'bytes');
-                    
-                    // Update URL with audio
-                    const url = new URL(window.location);
-                    url.searchParams.set('vb_audio_b64', base64Data);
-                    url.searchParams.set('vb_audio_bytes', audioBytes);
-                    url.searchParams.delete('vb_audio_present');  // Remove the marker
-                    
-                    console.log('🔄 Updating URL and reloading...');
-                    window.location.href = url.toString();
-                    
-                } catch (e) {
-                    console.error('❌ Extraction error:', e);
-                }
-            } else {
-                console.log('⚠️ No audio found in storage!');
-            }
-        })();
-        </script>
-        """
-        st.markdown(extract_audio_immediate_js, unsafe_allow_html=True)
-        
-        # Don't continue - let the JavaScript reload the page with audio data
-        return None
-    
-    # Also check if audio came via URL parameters
-    if "vb_audio_b64" in query_params:
-        try:
-            audio_b64 = query_params.get("vb_audio_b64", "")
-            audio_bytes_str = query_params.get("vb_audio_bytes", "0")
-            
-            if audio_b64 and len(audio_b64) > 100:
-                logging.info(f"✅ Retrieved audio from URL params: {audio_bytes_str} bytes")
-                
-                # Decode the base64 to bytes
-                import base64 as b64_module
-                try:
-                    audio_bytes = b64_module.b64decode(audio_b64)
-                    logging.info(f"✅ Successfully decoded audio: {len(audio_bytes)} bytes")
-                    
-                    # Clear query params
-                    st.query_params.clear()
-                    
-                    # Clean up storage
-                    cleanup = """
-                    <script>
-                    localStorage.removeItem('vb_recorded_audio');
-                    localStorage.removeItem('vb_recording_ready');
-                    sessionStorage.removeItem('vb_audio_b64');
-                    sessionStorage.removeItem('vb_audio_ready');
-                    console.log('✅ Cleaned up audio storage');
-                    </script>
-                    """
-                    st.markdown(cleanup, unsafe_allow_html=True)
-                    
-                    return audio_bytes
-                except Exception as e:
-                    logging.error(f"Error decoding audio: {e}")
-        except Exception as e:
-            logging.error(f"Error retrieving audio from params: {e}")
-    
-    try:
-        
-        # World-class styling for recording interface
-        st.markdown("""
-            <style>
-            .recorder-header-section {
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                padding: 30px;
-                border-radius: 12px;
-                margin-bottom: 20px;
-                box-shadow: 0 10px 40px rgba(102, 126, 234, 0.2);
-                color: white;
-            }
-            .recorder-title {
-                font-size: 28px;
-                font-weight: 800;
-                margin-bottom: 8px;
-                letter-spacing: -0.5px;
-            }
-            .recorder-subtitle {
-                font-size: 15px;
-                opacity: 0.95;
-                font-weight: 500;
-            }
-            .recorder-container {
-                background: #f8fafc;
-                padding: 25px;
-                border-radius: 12px;
-                border: 2px solid #e2e8f0;
-                margin: 20px 0;
-                transition: all 0.3s ease;
-            }
-            .upload-zone {
-                background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-                padding: 30px;
-                border-radius: 12px;
-                border: 2px dashed #667eea;
-                text-align: center;
-                margin: 20px 0;
-                transition: all 0.3s ease;
-            }
-            .upload-zone:hover {
-                border-color: #764ba2;
-                background: linear-gradient(135deg, #eef2f8 0%, #bfd4e3 100%);
-                box-shadow: 0 5px 20px rgba(102, 126, 234, 0.1);
-            }
-            .divider {
-                height: 2px;
-                background: linear-gradient(90deg, transparent, #cbd5e0, transparent);
-                margin: 30px 0;
-                border-radius: 1px;
-            }
-            </style>
-        """, unsafe_allow_html=True)
-        
-        # Only show recorder if no audio is captured yet
-        if not st.session_state.get("audio_data"):
-            # Professional header
-            st.markdown("""
-                <div class="recorder-header-section">
-                    <div class="recorder-title">🎙️ Voice Recording</div>
-                    <div class="recorder-subtitle">Record a sample of your voice or upload an audio file (30-60 seconds)</div>
-                </div>
-            """, unsafe_allow_html=True)
-            
-            # Pro Recorder Component with world-class styling
-            st.markdown('<div class="recorder-container">', unsafe_allow_html=True)
-            try:
-                from components.audio_recorder_pro import render_audio_recorder_pro
-                
-                # Create a callback function that will be triggered when JavaScript clicks the hidden button
-                def process_recorded_audio():
-                    """Callback triggered by JavaScript when audio is ready"""
-                    st.session_state.vb_audio_processing_triggered = True
-                
-                # Add a hidden Streamlit button that JavaScript will trigger
-                # This button has a callback that will set session state
-                hidden_button_html = """
-                <div style="display: none;">
-                    <button id="vb_trigger_audio_processing" type="button" onclick="
-                        (function() {
-                            console.log('🎯 Audio processing triggered by JavaScript');
-                            // Signal that we're processing
-                            window.vb_processing_started = true;
-                        })();
-                    ">Process Audio</button>
-                </div>
-                """
-                st.markdown(hidden_button_html, unsafe_allow_html=True)
-                
-                # Add JavaScript that will read the stored audio and make it available
-                extract_audio_js = """
-                <script>
-                (function() {
-                    // Check if audio is in storage
-                    const audioB64 = sessionStorage.getItem('vb_audio_b64') || 
-                                    localStorage.getItem('vb_recorded_audio') ||
-                                    window.vb_audio_data;
-                    
-                    if (audioB64 && audioB64.length > 100) {
-                        console.log('🎤 Audio found, preparing for Python...');
-                        
-                        // Try to decode and validate
-                        try {
-                            let base64Part = audioB64;
-                            if (audioB64.includes(',')) {
-                                base64Part = audioB64.split(',')[1];
-                            }
-                            
-                            // Convert to binary to check size
-                            const binaryString = atob(base64Part);
-                            const audioSize = binaryString.length;
-                            
-                            console.log('✅ Audio valid:', audioSize, 'bytes');
-                            
-                            // Store the size info in sessionStorage for Python to detect
-                            sessionStorage.setItem('vb_audio_size_bytes', audioSize);
-                            sessionStorage.setItem('vb_audio_status', 'ready_for_python');
-                            
-                            // Mark that we're ready
-                            window.vb_audio_size_bytes = audioSize;
-                            window.vb_audio_for_python = base64Part;
-                            
-                        } catch (e) {
-                            console.error('Audio validation error:', e);
-                        }
-                    }
-                })();
-                </script>
-                """
-                st.markdown(extract_audio_js, unsafe_allow_html=True)
-                
-                # Render the pro recorder
-                audio_data = render_audio_recorder_pro()
-                
-                # If recorder returned audio directly, use it
-                if audio_data:
-                    logging.info("✅ Audio returned directly from recorder")
-                    return audio_data
-                
-
-                # Check for localStorage audio via JavaScript injection
-                # This will be called on every page reload to check for pending recordings
-                retrieve_audio_script = """
-                <script>
-                (function() {
-                    // Check if audio is waiting in localStorage
-                    const audioB64 = localStorage.getItem('vb_recorded_audio');
-                    const timestamp = localStorage.getItem('vb_recording_timestamp');
-                    const status = localStorage.getItem('vb_recording_ready');
-                    
-                    if (audioB64 && status === '1' && audioB64.length > 100) {
-                        console.log('Found recorded audio in localStorage, status:', status);
-                        
-                        // Mark as being processed so we don't reprocess
-                        localStorage.setItem('vb_recording_ready', '2');
-                        
-                        // Store in window for potential access
-                        window.vb_audio_pending = audioB64;
-                        window.vb_recording_timestamp = timestamp;
-                        
-                        // Try to find and interact with Streamlit's internal state
-                        // This is a bit hacky but necessary since components.html() is stateless
-                        if (window.parent && window.parent.parent) {
-                            try {
-                                // Signal through postMessage to parent that we have audio
-                                window.parent.postMessage({
-                                    type: 'vb_audio_ready',
-                                    data: audioB64.substring(0, 50) + '...'
-                                }, '*');
-                            } catch (e) {
-                                console.log('PostMessage failed:', e);
-                            }
-                        }
-                    }
-                })();
-                </script>
-                """
-                
-                st.markdown(retrieve_audio_script, unsafe_allow_html=True)
-                
-                # CRITICAL: Add JavaScript that transfers audio from localStorage to URL query params
-                # This is the "bridge" that allows JavaScript to pass data back to Python
-                transfer_audio_to_url_js = """
-                <script>
-                (function() {
-                    // Only run once per session
-                    if (window.vb_audio_bridge_installed) return;
-                    window.vb_audio_bridge_installed = true;
-                    
-                    // Check if we have audio ready in localStorage after a reload
-                    const audioB64 = localStorage.getItem('vb_recorded_audio');
-                    const recordingStatus = localStorage.getItem('vb_recording_ready');
-                    const recordingTs = localStorage.getItem('vb_recording_timestamp');
-                    
-                    if (audioB64 && (recordingStatus === '1' || recordingStatus === '2') && audioB64.length > 100) {
-                        console.log('🎤 Found audio in localStorage after reload, transferring to URL...');
-                        
-                        try {
-                            // Extract base64 data
-                            let base64Data = audioB64;
-                            if (audioB64.includes(',')) {
-                                base64Data = audioB64.split(',')[1];
-                            }
-                            
-                            const audioLen = base64Data.length;
-                            
-                            // Create URL with audio data as query parameters
-                            // We use URL.searchParams to properly encode the data
-                            const url = new URL(window.location);
-                            url.searchParams.set('vb_audio_len', audioLen);
-                            url.searchParams.set('vb_audio_b64', base64Data);
-                            
-                            console.log('📤 Transferring', audioLen, 'bytes via URL');
-                            
-                            // Replace history and navigate to new URL with audio data
-                            window.history.replaceState({}, '', url);
-                            
-                            // Trigger Streamlit rerun by modifying the URL
-                            // The rerun will cause Streamlit to reload and Python will read the query params
-                            setTimeout(() => {
-                                // After setting the URL, trigger a full reload so Streamlit picks it up
-                                window.location.reload();
-                            }, 100);
-                            
-                        } catch (e) {
-                            console.error('Audio transfer failed:', e);
-                        }
-                    }
-                })();
-                </script>
-                """
-                st.markdown(transfer_audio_to_url_js, unsafe_allow_html=True)
-                
-            except Exception as e:
-                logging.error(f"Pro recorder error: {str(e)}")
-                st.error("⚠️ Pro recorder temporarily unavailable")
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            # Elegant divider
-            st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
-            
-            # File upload alternative with world-class styling
-            st.markdown('<div class="upload-zone">', unsafe_allow_html=True)
-            st.markdown("#### 📎 Or Upload Audio File")
-            st.markdown(f"*Drag and drop an audio file ({accepted_formats_display()}) or click to browse*")
-            uploaded_file = st.file_uploader(
-                f"Upload Audio ({accepted_formats_display()})",
-                type=ACCEPTED_AUDIO_EXTS,
-                key="audio_file_uploader",
-                label_visibility="collapsed",
-                help=f"Supported formats: {accepted_formats_display()} • Max 200MB"
-            )
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            if uploaded_file:
-                return uploaded_file
-            
-            # CRITICAL: Check if we need to process a recorded audio from localStorage
-            # This happens when JavaScript has stored audio and the page reloaded
-            process_localStorage_audio = """
-            <script>
-            (function() {
-                const audioB64 = localStorage.getItem('vb_recorded_audio');
-                const status = localStorage.getItem('vb_recording_ready');
-                
-                if (audioB64 && (status === '1' || status === '2') && !window.vb_audio_processed) {
-                    window.vb_audio_processed = true;
-                    console.log('Processing localStorage audio...');
-                    
-                    // Convert base64 to blob
-                    try {
-                        let base64Data = audioB64;
-                        if (audioB64.includes(',')) {
-                            base64Data = audioB64.split(',')[1];
-                        }
-                        
-                        const binaryString = atob(base64Data);
-                        const bytes = new Uint8Array(binaryString.length);
-                        for (let i = 0; i < binaryString.length; i++) {
-                            bytes[i] = binaryString.charCodeAt(i);
-                        }
-                        
-                        const audioBlob = new Blob([bytes], { type: 'audio/wav' });
-                        const audioUrl = URL.createObjectURL(audioBlob);
-                        
-                        // Store in window for Python to access if possible
-                        window.vb_audio_blob_data = audioBlob;
-                        window.vb_audio_ready_for_python = true;
-                        window.vb_audio_url = audioUrl;
-                        
-                        console.log('Audio blob created:', audioBlob.size, 'bytes');
-                        
-                        // Force a rerun by clicking on the file uploader or by changing URL
-                        // Try to trigger Streamlit rerun
-                        const inputs = document.querySelectorAll('input[type="file"]');
-                        console.log('Found', inputs.length, 'file inputs');
-                        
-                    } catch (e) {
-                        console.error('Audio processing error:', e);
-                    }
-                }
-            })();
-            </script>
-            """
-            st.markdown(process_localStorage_audio, unsafe_allow_html=True)
-            
-            # Tips with collapsible section
-            with st.expander("💡 **Tips for Best Results**", expanded=False):
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.markdown("""
-                    **Browser Tips:**
-                    - Chrome or Edge recommended
-                    - Allow microphone permissions
-                    - Refresh if issues occur
-                    """)
-                with col2:
-                    st.markdown("""
-                    **Recording Tips:**
-                    - Quiet environment
-                    - Clear, natural speech
-                    - 30-60 seconds duration
-                    - Check preview before proceed
-                    """)
-            
-            # CRITICAL: Attempt to retrieve recording from localStorage via direct injection
-            retrieve_and_process_audio = """
-            <script>
-            (function() {
-                // Try to retrieve the recorded audio from localStorage
-                const audioB64 = localStorage.getItem('vb_recorded_audio');
-                const recordingStatus = localStorage.getItem('vb_recording_ready');
-                const recordingTs = localStorage.getItem('vb_recording_timestamp');
-                
-                // Only process if we haven't already processed it
-                if (audioB64 && audioB64.length > 100 && recordingStatus === '1' && !window.vb_final_transfer_done) {
-                    window.vb_final_transfer_done = true;
-                    console.log('🎤 Recording detected in localStorage! Status:', recordingStatus);
-                    
-                    // Extract base64 data
-                    let base64Data = audioB64;
-                    if (audioB64.includes(',')) {
-                        base64Data = audioB64.split(',')[1];
-                    }
-                    
-                    // Store in window for any potential bridge
-                    window.vb_audio_ready_to_process = true;
-                    window.vb_audio_b64 = base64Data;
-                    
-                    // Mark as having processed
-                    localStorage.setItem('vb_recording_ready', '2');
-                    localStorage.setItem('vb_audio_processed_at', new Date().toISOString());
-                    
-                    console.log('✅ Audio prepared for Streamlit processing');
-                    
-                    // Try to trigger a Streamlit state update by modifying URL hash
-                    if (window.location.hash.indexOf('vb_rec_') === -1) {
-                        window.location.hash = '#vb_rec_processing_' + Date.now();
-                    }
-                }
-            })();
-            </script>
-            """
-            st.markdown(retrieve_and_process_audio, unsafe_allow_html=True)
-            
-            # ULTIMATE CRITICAL: Try to retrieve audio from sessionStorage and convert to bytes
-            # This is the final attempt to get the audio from JavaScript storage
-            try_retrieve_audio_python_js = """
-            <script>
-            (function() {
-                // Get audio from storage
-                const audioB64 = sessionStorage.getItem('vb_audio_b64') || 
-                               localStorage.getItem('vb_recorded_audio') ||
-                               window.vb_audio_data;
-                
-                if (audioB64 && audioB64.length > 100 && !window.vb_python_retrieve_attempted) {
-                    window.vb_python_retrieve_attempted = true;
-                    
-                    console.log('🎯 FINAL RETRIEVAL: Found audio in storage');
-                    console.log('🎯 Audio size:', audioB64.length);
-                    console.log('🎯 Ready to transfer to Python');
-                    
-                    // Mark in window that we have audio ready
-                    window.vb_audio_definitely_ready = true;
-                    
-                    // Store both the b64 and size
-                    window.vb_audio_for_python_b64 = audioB64;
-                    
-                    // Try to compute size
-                    try {
-                        let base64Part = audioB64;
-                        if (audioB64.includes(',')) {
-                            base64Part = audioB64.split(',')[1];
-                        }
-                        window.vb_audio_size = atob(base64Part).length;
-                        console.log('🎯 Audio decoded, size:', window.vb_audio_size, 'bytes');
-                    } catch (e) {
-                        console.log('Size calculation error:', e);
-                    }
-                }
-            })();
-            </script>
-            """
-            st.markdown(try_retrieve_audio_python_js, unsafe_allow_html=True)
-            
-            # NOW: The key step - Check if we have audio pending in JavaScript
-            # We'll attempt to retrieve it by injecting code that puts it in a format Python can access
-            # Since JavaScript window objects are accessible to subsequent code, we inject a retrieval script
-            
-            # **DIRECT RETRIEVAL ATTEMPT**: Use a Streamlit markdown to inject a retrieval script
-            # that will run and potentially store data in a way Python can detect via re-renders
-            direct_retrieval_final = """
-            <script>
-            (function() {
-                // Final attempt: Store audio in base64 format in a hidden element's attribute
-                const audioB64 = sessionStorage.getItem('vb_audio_b64') || 
-                               localStorage.getItem('vb_recorded_audio') ||
-                               window.vb_audio_data;
-                
-                if (audioB64 && audioB64.length > 100) {
-                    // Create hidden element with audio data
-                    let container = document.getElementById('vb_python_audio_container');
-                    if (!container) {
-                        container = document.createElement('div');
-                        container.id = 'vb_python_audio_container';
-                        container.style.display = 'none';
-                        document.body.appendChild(container);
-                    }
-                    
-                    // Store the base64 in the element's innerHTML encoded as a comment
-                    container.setAttribute('data-audio-exists', 'true');
-                    container.setAttribute('data-audio-b64-len', audioB64.length);
-                    
-                    // Store in text content (carefully to avoid memory issues with huge strings)
-                    if (audioB64.length < 5000000) { // Less than 5MB
-                        container.textContent = audioB64.substring(0, 100) + '...';
-                        container.setAttribute('data-audio-complete', 'true');
-                    }
-                    
-                    console.log('✅ Audio stored in container element');
-                }
-            })();
-            </script>
-            """
-            st.markdown(direct_retrieval_final, unsafe_allow_html=True)
-            
-            # HERE: Python attempts to retrieve the audio by checking for the marker
-            # We check sessionStorage via JavaScript injection that sets a Python-readable value
-            final_python_check_js = """
-            <script>
-            (function() {
-                // This script will set a marker that Python can detect on the next rerun
-                if (sessionStorage.getItem('vb_audio_ready') === 'true' || 
-                    localStorage.getItem('vb_recording_ready') === '1') {
-                    
-                    // Signal that audio is definitely available
-                    window.vb_signal_audio_available = true;
-                    
-                    // If we get here, reload the page with a query param
-                    if (!window.location.search.includes('vb_audio_present')) {
-                        const url = new URL(window.location);
-                        url.searchParams.set('vb_audio_present', 'true');
-                        window.history.replaceState({}, '', url);
-                        
-                        // Trigger a page reload so Streamlit detects the parameter
-                        console.log('🔄 Reloading with audio presence marker...');
-                        window.location.reload();
-                    }
-                }
-            })();
-            </script>
-            """
-            st.markdown(final_python_check_js, unsafe_allow_html=True)
-        
-        return None
-            
-    except Exception as e:
-        logging.error(f"Audio capture error: {str(e)}")
-        st.error(f"❌ Audio capture error: {str(e)}")
-        return None
-        
-        st.markdown("""
-            <div class="recorder-section">
-                <h4 style='margin-bottom: 1rem;'>🎙️ Record a Voice Sample</h4>
-                <div class="instructions-box">
-                    <div class="instruction-step">
-                        <span class="step-number">1</span> Click the microphone button to start recording
-                    </div>
-                    <div class="instruction-step">
-                        <span class="step-number">2</span> Speak clearly for 30-60 seconds
-                    </div>
-                    <div class="instruction-step">
-                        <span class="step-number">3</span> Watch the timer and waveform as you speak
-                    </div>
-                    <div class="instruction-step">
-                        <span class="step-number">4</span> Click the stop button when finished
-                    </div>
-                </div>
-                <style>
-                    .instructions-box {
-                        background: #f8fafc;
-                        border: 1px solid #e2e8f0;
-                        border-radius: 8px;
-                        padding: 1rem;
-                        margin: 1rem 0;
-                    }
-                    .instruction-step {
-                        display: flex;
-                        align-items: center;
-                        margin: 0.5rem 0;
-                        font-size: 0.95rem;
-                        color: #1a365d;
-                    }
-                    .step-number {
-                        background: #3182ce;
-                        color: white;
-                        width: 24px;
-                        height: 24px;
-                        border-radius: 12px;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        margin-right: 0.75rem;
-                        font-weight: bold;
-                        font-size: 0.85rem;
-                    }
-                </style>
-                <div class="recording-info">
-                    <div class="timer-display">⏱️ Recording Time: <span id="timer">00:00</span></div>
-                    <div class="recording-status" id="recordingStatus"></div>
-                </div>
-                <div class="waveform-container" id="waveformContainer">
-                    <canvas id="waveformCanvas"></canvas>
-                </div>
-            </div>
-            <style>
-                .recording-info {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    margin: 1rem 0;
-                    padding: 0.5rem;
-                    background: #f8fafc;
-                    border-radius: 8px;
-                    border: 1px solid #e2e8f0;
-                }
-                .timer-display {
-                    font-family: monospace;
-                    font-size: 1.2rem;
-                    font-weight: bold;
-                    color: #1a365d;
-                }
-                .waveform-container {
-                    width: 100%;
-                    height: 100px;
-                    background: #fff;
-                    border: 2px solid #3182ce;
-                    border-radius: 8px;
-                    overflow: hidden;
-                    margin: 1rem 0;
-                    position: relative;
-                }
-                #waveformCanvas {
-                    width: 100%;
-                    height: 100%;
-                }
-                .recording-active {
-                    animation: pulse 2s infinite;
-                }
-                @keyframes pulse {
-                    0% { opacity: 1; }
-                    50% { opacity: 0.5; }
-                    100% { opacity: 1; }
-                }
-            </style>
-        """, unsafe_allow_html=True)
-        
-    try:
-        from components.audio_recorder_pro import render_audio_recorder_pro
-        
-        # Display browser compatibility notice
-        st.info("""💡 **Browser Compatibility:**
-        - Works best in Chrome, Edge, or Firefox
-        - Make sure your microphone is connected and permissions are allowed
-        - If the timer or waveform don't appear, try refreshing the page""")
-        
-        # Call the recorder component
-        render_audio_recorder_pro()
-        
-        st.markdown("""
-            <script>
-            let startTime = null;
-            let animationFrame = null;
-            let audioContext = null;
-            let analyser = null;
-                let microphone = null;
-                
-                function updateTimer() {
-                    if (!startTime) return;
-                    const now = Date.now();
-                    const elapsed = Math.floor((now - startTime) / 1000);
-                    const minutes = Math.floor(elapsed / 60);
-                    const seconds = elapsed % 60;
-                    document.getElementById('timer').textContent = 
-                        `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-                }
-                
-                function drawWaveform(stream) {
-                    if (!audioContext) {
-                        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                        analyser = audioContext.createAnalyser();
-                        microphone = audioContext.createMediaStreamSource(stream);
-                        microphone.connect(analyser);
-                    }
-                    
-                    const canvas = document.getElementById('waveformCanvas');
-                    const ctx = canvas.getContext('2d');
-                    const dataArray = new Uint8Array(analyser.frequencyBinCount);
-                    
-                    function draw() {
-                        animationFrame = requestAnimationFrame(draw);
-                        analyser.getByteTimeDomainData(dataArray);
-                        
-                        ctx.fillStyle = '#ffffff';
-                        ctx.fillRect(0, 0, canvas.width, canvas.height);
-                        
-                        ctx.lineWidth = 2;
-                        ctx.strokeStyle = '#3182ce';
-                        ctx.beginPath();
-                        
-                        const sliceWidth = canvas.width / dataArray.length;
-                        let x = 0;
-                        
-                        for (let i = 0; i < dataArray.length; i++) {
-                            const v = dataArray[i] / 128.0;
-                            const y = v * canvas.height / 2;
-                            
-                            if (i === 0) ctx.moveTo(x, y);
-                            else ctx.lineTo(x, y);
-                            
-                            x += sliceWidth;
-                        }
-                        
-                        ctx.lineTo(canvas.width, canvas.height / 2);
-                        ctx.stroke();
-                        updateTimer();
-                    }
-                    
-                    draw();
-                }
-                
-                // Initialize recording handlers
-                document.addEventListener('DOMContentLoaded', function() {
-                    const recordButton = document.querySelector('.stAudioRecorder button');
-                    if (recordButton) {
-                        recordButton.addEventListener('click', async function() {
-                            if (!startTime) {
-                                startTime = Date.now();
-                                document.getElementById('recordingStatus').textContent = '🔴 Recording...';
-                                document.getElementById('recordingStatus').classList.add('recording-active');
-                                
-                                try {
-                                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                                    drawWaveform(stream);
-                                } catch (err) {
-                                    console.error('Microphone access error:', err);
-                                }
-                            } else {
-                                startTime = null;
-                                document.getElementById('recordingStatus').textContent = '';
-                                document.getElementById('recordingStatus').classList.remove('recording-active');
-                                if (animationFrame) {
-                                    cancelAnimationFrame(animationFrame);
-                                    animationFrame = null;
-                                }
-                                if (audioContext) {
-                                    audioContext.close();
-                                    audioContext = null;
-                                    analyser = null;
-                                    microphone = null;
-                                }
-                            }
-                        });
-                    }
-                });
-                </script>
-            """, unsafe_allow_html=True)
-        
-        # Enhanced recorder styling with timer and waveform
-        st.markdown("""
-            <style>
-                .recorder-wrapper {
-                    background: #f8f9fa;
-                    padding: 20px;
-                    border-radius: 10px;
-                        border: 1px solid #dee2e6;
-                        margin: 10px 0;
-                        position: relative;
-                        min-height: 200px;
-                    }
-                    .timer-display {
-                        font-family: monospace;
-                        font-size: 24px;
-                        font-weight: bold;
-                        padding: 10px;
-                        background: white;
-                        border-radius: 8px;
-                        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                        display: inline-block;
-                        margin-bottom: 10px;
-                        font-size: 1.5em;
-                        color: #FF4B4B;
-                        text-align: center;
-                        margin: 10px 0;
-                        padding: 5px;
-                        background: #fff;
-                        border-radius: 5px;
-                        border: 1px solid #dee2e6;
-                    }
-                    .waveform-container {
-                        height: 120px;
-                        background: #fff;
-                        border-radius: 8px;
-                        border: 2px solid #3182CE;
-                        margin: 15px 0;
-                        overflow: hidden;
-                        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-                        padding: 10px;
-                        position: relative;
-                    }
-                    .waveform-container::before {
-                        content: "Waveform";
-                        position: absolute;
-                        top: -10px;
-                        left: 10px;
-                        background: white;
-                        padding: 0 8px;
-                        font-size: 12px;
-                        color: #3182CE;
-                    }
-                    .recording-indicator {
-                        color: #FF4B4B;
-                        animation: blink 1s infinite;
-                    }
-                    @keyframes blink {
-                        50% { opacity: 0; }
-                    }
-                </style>
-            """, unsafe_allow_html=True)
-        
-        with st.container():
-            st.markdown('<div class="recorder-wrapper">', unsafe_allow_html=True)
-            
-            # Timer display
-            timer_col, status_col = st.columns([1, 2])
-            with timer_col:
-                    if st.session_state.recording_start:
-                        current_time = time.time()
-                        duration = current_time - st.session_state.recording_start
-                        st.markdown(f"""
-                            <div class="timer-display">
-                                {format_time(duration)} <span class="recording-indicator">●</span>
-                            </div>
-                        """, unsafe_allow_html=True)
-                    else:
-                        st.markdown("""
-                        <div class="timer-display">
-                            00:00
-                        </div>
-                    """, unsafe_allow_html=True)
-            
-            with status_col:
-                if st.session_state.recording_start:
-                    st.info("🎙️ Recording in progress...")
-                else:
-                    st.info("Click to start recording")
-                
-                # Pro Recorder features
-                if use_pro_recorder:
-                    # Waveform visualization
-                    st.markdown('<div class="waveform-container">', unsafe_allow_html=True)
-                    if st.session_state.waveform_data:
-                        chart_data = pd.DataFrame({"amplitude": st.session_state.waveform_data})
-                        st.line_chart(chart_data, height=100)
-                    st.markdown('</div>', unsafe_allow_html=True)
-                
-                # Audio recorder component
-                try:
-                    audio = audio_recorder(
-                        pause_threshold=60.0,
-                        recording_color="#FF4B4B",
-                        neutral_color="#6c757d",
-                        icon_name="microphone",
-                        icon_size="2x",
-                        key=f"audio_recorder_{'pro' if use_pro_recorder else 'basic'}"
-                    )
-                    
-                    if audio:
-                        # Update recording state
-                        if not st.session_state.recording_start:
-                            st.session_state.recording_start = time.time()
-                            st.session_state.waveform_data = []
-                        
-                        # Process audio for waveform if in Pro mode
-                        if use_pro_recorder and isinstance(audio, bytes):
-                            try:
-                                with wave.open(BytesIO(audio)) as wav:
-                                    frames = wav.readframes(wav.getnframes())
-                                    audio_data = np.frombuffer(frames, dtype=np.int16)
-                                    # Downsample for visualization
-                                    st.session_state.waveform_data = audio_data[::100].tolist()
-                            except Exception as e:
-                                logger.warning(f"Waveform processing error: {str(e)}")
-
-                        # Process the recording
-                        st.success("✅ Recording successful!")
-                        st.audio(audio, format="audio/wav")
-                        
-                        # Update session state
-                        st.session_state.audio_data = audio
-                        st.session_state.audio_source = "recorder"
-                        st.session_state.ready_to_proceed = True
-                        st.session_state.recording_duration = time.time() - st.session_state.recording_start
-                        st.session_state.recording_start = None
-                        
-                        return audio
-                except Exception as e:
-                    st.error(f"Recording section error: {str(e)}")
-                    return None
-    except Exception as e:
-        st.error(f"Recorder section error: {str(e)}")
-        return None
-    finally:
-        st.markdown('</div>', unsafe_allow_html=True)
-
-
-@safe_execute(show_details=True)
-def render_upload_section():
-    """Render the file upload section with drag & drop support."""
-    try:
-        # Set up styles first
-        # Add styling
-        style_html = """
-            <style>
-                .uploadArea {
-                    border: 2px dashed #0066CC;
-                    border-radius: 10px;
-                    padding: 20px;
-                    text-align: center;
-                    background: #f8f9fa;
-                    margin: 10px 0;
-                }
-                .upload-text {
-                    color: #666;
-                    font-size: 0.9em;
-                    margin: 10px 0;
-                }
-            </style>
-        """
-        st.markdown(style_html, unsafe_allow_html=True)
-
-        # Create upload section
-        try:
-            st.markdown("""
-                <div class="upload-section">
-                    <h4 style='margin-bottom: 1rem;'>📁 Upload Audio File</h4>
-                    <p class="instruction-text">Or upload an existing audio file</p>
-                </div>
-                <div class="uploadArea">
-                    <p><strong>Drop your audio file here</strong></p>
-                    <p class="upload-text">Supported: WAV, MP3, M4A (max 200MB)</p>
-                </div>
-            """, unsafe_allow_html=True)
-
-            # Add file uploader
-            uploaded_file = st.file_uploader(
-                f"Choose an audio file ({accepted_formats_display()})",
-                type=ACCEPTED_AUDIO_EXTS,
-                help=f"Supported: {accepted_formats_display()} — Max 200MB",
-                key="audio_upload"
-            )
-
-            # Handle uploaded file
-            if uploaded_file:
-                st.success("✅ File uploaded successfully!")
-                st.audio(uploaded_file, format="audio/wav")
-                st.session_state.audio_data = uploaded_file
-                st.session_state.audio_source = "upload"
-                st.session_state.ready_to_proceed = True
-                return uploaded_file
-
-            return None
-
-        except Exception as e:
-            st.error(f"Upload failed: {str(e)}")
-            return None
-
-        finally:
-            st.markdown('</div>', unsafe_allow_html=True)
-            st.markdown("""
-                <div>
-                    <p class="upload-text">Supported: WAV, MP3, M4A (max 200MB)</p>
-                </div>
-            """, unsafe_allow_html=True)
-
-        # File uploader
-        uploaded_file = st.file_uploader(
-            f"Choose an audio file ({accepted_formats_display()})",
-            type=ACCEPTED_AUDIO_EXTS,
-            help=f"Supported: {accepted_formats_display()} — Max 200MB",
-            key="audio_upload"
-        )
-
-        if uploaded_file:
-            st.success("✅ File uploaded successfully!")
-            st.audio(uploaded_file, format="audio/wav")
-            st.session_state.audio_data = uploaded_file
-            st.session_state.audio_source = "upload"
-            st.session_state.ready_to_proceed = True
-            return uploaded_file
-        
-        return None
-
-    except Exception as e:
-        st.error(f"Upload error: {str(e)}")
-        return None
-    finally:
-        st.markdown('</div>', unsafe_allow_html=True)
-
-def render_upload_area():
-    try:
-        # Enhanced upload area styling
-        st.markdown("""
-            <style>
-                .uploadArea {
-                    border: 2px dashed #0066CC;
-                    border-radius: 10px;
-                    padding: 20px;
-                    text-align: center;
-                    background: #f8f9fa;
-                    margin: 10px 0;
-                }
-                .upload-text {
-                    color: #666;
-                    font-size: 0.9em;
-                    margin: 10px 0;
-                }
-            </style>
-            <div class="uploadArea">
-                <p><strong>Drop your audio file here</strong></p>
-                <p class="upload-text">Supported: WAV, MP3, M4A (max 200MB)</p>
-            </div>
-        """, unsafe_allow_html=True)
-    
-        uploaded_file = st.file_uploader(
-            f"Choose an audio file ({accepted_formats_display()})",
-            type=ACCEPTED_AUDIO_EXTS,
-            help=f"Supported: {accepted_formats_display()} — Max 200MB",
-            key="audio_upload"
-        )
-        
-        if uploaded_file:
-            st.success("✅ File uploaded successfully!")
-            st.audio(uploaded_file, format="audio/wav")
-            # Update session state
-            st.session_state.audio_data = uploaded_file
-            st.session_state.audio_source = "upload"
-            st.session_state.ready_to_proceed = True
-            return uploaded_file
-        return None
-    except Exception as e:
-        st.error(f"Upload failed: {str(e)}")
-        return None
-    finally:
-        st.markdown('</div>', unsafe_allow_html=True)
-
-# Main layout with two columns
-@safe_execute(show_details=True)
-def render_main_layout():
-    try:
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            audio_data = render_audio_capture_area()
-            
-        with col2:
-            upload_data = render_upload_section()
-        
-        # Store the result in session state
-        if audio_data or upload_data:
-            st.session_state.audio_data = audio_data or upload_data
-    except Exception as e:
-        st.error(f"Error in main layout: {str(e)}")
-        return None
-    
-    # Help text and instructions
-    st.markdown("---")
-    
-    # Show appropriate message based on state
-    if st.session_state.ready_to_proceed:
-        st.success("✅ Audio ready! You can proceed with voice cloning.")
-    else:
-        st.info("""
-            💡 **Tips for best results:**
-            - Record in a quiet environment
-            - Speak clearly and naturally
-            - Keep the microphone at a consistent distance
-            - Aim for 30-60 seconds of audio
-        """)
-    
-    return st.session_state.audio_data if st.session_state.ready_to_proceed else None
 
 import base64
 import hashlib
@@ -1334,119 +21,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import streamlit as st
 
-from error_handling import (
-    VocalBrandError, AudioProcessingError, RecordingError, CloneGenerationError,
-    safe_execute, handle_error, ERROR_MESSAGES
-)
 
-
-
-
-def inject_css_overrides():
-    # Direct injection of critical CSS overrides to eliminate all white artifacts
-    # and fix UI inconsistencies once and for all.
-    st.markdown('''
-
-<style>
-/* GLOBAL RESET - Force transparent backgrounds */
-div[data-testid="stVerticalBlock"] > div, 
-div[data-testid="stHorizontalBlock"] > div,
-div[data-testid="element-container"] > div,
-div[data-testid="stVerticalBlock"] > div > div,
-div[data-testid="stHorizontalBlock"] > div > div,
-div.element-container,
-div.row-widget,
-div.stButton,
-div.stDownloadButton,
-div.stFileUploader,
-section[data-testid],
-div.block-container,
-span[class^="st-emotion-cache-"],
-span[class*=" st-emotion-cache-"],
-div.uploadInstructions {
-    background: transparent !important;
-    background-color: transparent !important;
-    border: none !important;
-}
-
-/* Force transparent backgrounds on specific problematic emotion cache elements */
-.st-emotion-cache-zg1hna,
-.st-emotion-cache-1okhd5l,
-.st-emotion-cache-1fttcpj,
-.st-emotion-cache-7ym5gk,
-.st-emotion-cache-16idsys,
-.st-emotion-cache-ocqp1h {
-    background: transparent !important;
-    background-color: transparent !important;
-    border: none !important;
-}
-
-/* Custom file uploader styling */
-[data-testid="stFileUploader"] {
-    padding: 0.25rem !important;
-}
-
-[data-testid="stFileUploader"] > section {
-    background: transparent !important;
-    border: none !important;
-    padding: 0 !important;
-}
-
-[data-testid="stFileUploaderDropzone"] {
-    border: 2px dashed rgba(49, 51, 63, 0.2) !important;
-    border-radius: 10px !important;
-    background: rgba(247, 248, 250, 0.1) !important;
-    padding: 1rem !important;
-    min-height: 125px !important;
-}
-
-/* Make audio players consistent */
-audio {
-    width: 100% !important;
-    border-radius: 8px !important;
-    background: rgba(247, 248, 250, 0.5) !important;
-}
-
-/* Custom styling for the drag and drop text */
-div.uploadInstructions,
-[data-testid="stFileUploaderDropzone"] span,
-[data-testid="stFileUploaderDropzone"] small,
-.css-pkbazv {
-    color: #1e1e1e !important;
-}
-
-/* Fix iframe spacing and artifacts */
-iframe {
-    border: none !important;
-    background: transparent !important;
-    overflow: hidden !important;
-}
-
-/* Completely hide any extra elements that can't be styled */
-section.main > div > div:nth-child(1) > div > div:nth-child(5) div {
-    background: transparent !important;
-}
-
-/* Eliminate top navigation bar artifacts */
-header[data-testid="stHeader"] {
-    background: rgba(255,255,255,0.95) !important;
-}
-
-/* Fix primary buttons to be more consistent */
-button[kind="primary"] {
-    background: linear-gradient(to bottom, #3182CE, #2C5282) !important;
-}
-
-/* Fix status messages */
-[data-baseweb="notification"] {
-    background: white !important;
-}
-</style>
-
-    ''', unsafe_allow_html=True)
-
-
-def inject_css_overrides():
+def inject_supreme_css():
     # 🌟 ULTRA SUPREME: Global CSS overrides to fix white artifacts and spacing
     st.markdown('''
     <style>
@@ -1502,13 +78,17 @@ def inject_css_overrides():
     }
     
     /* Fix dividers */
-    import streamlit_audiorecorder as st_audiorecorder
-    audio = st_audiorecorder.st_audiorecorder("Click to record", key="audio_recorder")
-    if audio:
-        st.audio(audio, format="audio/wav")
-        st.success("Audio recorded successfully!")
-    else:
-        st.info("Click to record your sample.")
+    hr {
+        margin: 0.5rem 0 !important;
+    }
+    
+    /* Fix iframe containers */
+    iframe {
+        border: none !important;
+        background: transparent !important;
+    }
+    
+    /* Override ALL containers */
     [data-testid="stVerticalBlock"] div[data-testid="stElementContainer"] { 
         background: transparent !important;
         margin: 0 !important;
@@ -2126,9 +706,6 @@ def _ingest_audio_bytes(raw_bytes: bytes, *, source: str, filename: str | None =
     st.session_state["pending_audio_label"] = meta["filename"]
     st.session_state["pending_audio_meta"] = meta
     st.session_state["recording_locked_in"] = True
-    # 🔑 CRITICAL FIX: Also set audio_data so render_clone_section() can continue the flow
-    st.session_state["audio_data"] = raw_bytes
-    st.session_state["audio_meta"] = meta
     logger.info(
         "Ingested audio | source=%s hash=%s size=%sB ok=%s duration=%.2fs loudness=%s",
         source,
@@ -2179,70 +756,33 @@ def _maybe_trim_silence(raw_bytes: bytes) -> Tuple[bytes, Optional[Dict[str, Any
         return raw_bytes, {"applied": False, "reason": str(e)}
 
 
-
-@safe_execute(show_details=True)
 def render_file_upload_fallback() -> None:
-    """Handle file upload with comprehensive error handling."""
-    # 🎯 NOTE: Guidance message now shown at top of render_clone_section() instead
-    # This ensures it displays BEFORE Step 1, regardless of flow state
+    # 🌟 ULTRA SUPREME: Clean uploader with custom styling
+    st.markdown("<div style='margin-top:1.5rem;'></div>", unsafe_allow_html=True)
+    st.markdown("### 📁 Upload Audio")
     
-    # Render upload section header
-    # Provide an anchor to auto-scroll here
-    st.markdown('<div id="vb-upload"></div>', unsafe_allow_html=True)
-    st.markdown('''
-    <div class="section-header">
-        <h3 class="upload-title">
-            <span class="icon">📁</span> Upload Audio
-        </h3>
-    </div>
-    ''', unsafe_allow_html=True)
-    
-    # Make label visible so supported formats are obvious
+    # Custom container for uploader to eliminate white artifacts
     uploaded = st.file_uploader(
-        f"Upload Audio File ({accepted_formats_display()})", type=ACCEPTED_AUDIO_EXTS, 
-        key="clone_file_upload", label_visibility="visible"
+        "Drop WAV, MP3, or M4A file", type=["wav", "mp3", "m4a", "aac"], key="clone_file_upload",
+        label_visibility="collapsed"
     )
-    # Explicit, persistent helper text regardless of Streamlit placeholder
-    st.caption(f"Supported: {accepted_formats_display()} • Max 200 MB • Drag & drop or click Browse")
     
     if not uploaded:
         return
-    
-    raw_bytes = uploaded.read()
-    if not raw_bytes:
-        raise VocalBrandError(
-            message="The uploaded file appears to be empty",
-            recovery_hint="Please try uploading your file again",
-            code="empty_file"
-        )
-    
-    # Process the audio file
-    meta = _ingest_audio_bytes(raw_bytes, source="upload", filename=uploaded.name)
-    if not meta:
-        raise AudioProcessingError(
-            message="Could not process the audio file",
-            recovery_hint="Make sure your file is a valid audio format (WAV, MP3, M4A, or AAC)",
-            code="processing_failed"
-        )
-    
-    _render_audio_feedback(meta, raw_bytes)
-    
-    # Force rerun to ensure UI updates
-    if meta.get("duration"):
-        st.session_state["file_upload_success"] = True
-        st.rerun()
-    
-    return
-
     raw_bytes = uploaded.read()
     if not raw_bytes:
         st.warning("Uploaded file appears empty.")
         return
+    meta = _ingest_audio_bytes(raw_bytes, source="upload", filename=uploaded.name)
+    _render_audio_feedback(meta, raw_bytes)
+    
+    # Force continuation of flow after successful upload
+    if meta and meta.get("duration"):
+        st.success(f"File processed: {uploaded.name} ({meta.get('duration', 0):.1f}s)")
+        st.rerun()
 
 
-    def render_audio_capture_area() -> None:
-        st.markdown("#### Record a 30-60s sample")
-        st.info("Recorder UI will appear here. (Supreme placeholder)")
+def render_audio_capture_area() -> None:
     st.markdown("#### Record a 30-60s sample")
     # Allow forcing Pro Recorder (HTML5) even if native is present, for live timer+waveform
     force_pro = bool(st.session_state.get("use_pro_recorder"))
@@ -2263,22 +803,22 @@ def render_file_upload_fallback() -> None:
         if (container.dataset.vbInit === '1') return;
         container.dataset.vbInit = '1';
         container.innerHTML = `
-<!-- Pro Recorder Container -->
-<div class="pro-recorder">
-    <div class="vbrec-toolbar">
-        <button class="vbrec-btn vbrec-btn--start" id="startBtn">
-            🎙️ Start Recording
-        </button>
-        <button class="vbrec-btn vbrec-btn--stop" id="stopBtn" disabled>
-            ⏹️ Stop Recording
-        </button>
-    </div>
-    <div id="vb_status" class="vbrec-status"></div>
-    <div id="vb_level" class="vbrec-level"></div>
-    <canvas id="vb_canvas" class="vbrec-canvas"></canvas>
-    <audio id="vb_play" class="vbrec-audio" controls></audio>
-    <div id="vb_download_wrap" class="vbrec-download-wrap"></div>
-</div>
+<style>/* ULTRA SUPREME RECORDER STYLING */
+#${rootId} { background:transparent!important; }
+#${rootId} * { font-family:sans-serif; }
+</style>
+
+            <style>
+              /* Scope styles to this component only - SUPREME LIGHT THEME */
+              #${rootId} .vbrec-toolbar { display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap; justify-content:center; margin-bottom:1rem; }
+              #${rootId} .vbrec-btn { 
+                padding:0.75rem 1.5rem; 
+                border:none; 
+                border-radius:10px; 
+                font-weight:600; 
+                cursor:pointer; 
+                transition:all 0.3s ease;
+                min-width:140px;
                 font-size:1rem;
                 box-shadow:0 4px 6px rgba(0,0,0,0.1);
                 display:inline-flex;
@@ -2366,9 +906,7 @@ def render_file_upload_fallback() -> None:
                         <audio id="vb_play" controls style="margin-top:1rem;width:100%;display:none;background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;padding:0.5rem;"></audio>
                         <div id="vb_download_wrap" style="display:none;display:flex;gap:.5rem;align-items:center;justify-content:center;flex-wrap:wrap;margin-top:0.75rem;margin-bottom:0.75rem;">
                             <a id="vb_download" download="vocalbrand_recording.webm">⬇️ Download recording</a>
-                            <button id="vb_use_btn" class="vbrec-btn vbrec-btn--primary" onClick="(function(){setTimeout(function(){window.streamlitRerun && window.streamlitRerun();}, 100)})()">
-                                ✅ USE RECORDING
-                            </button>
+                            <button id="vb_use_btn" class="vbrec-btn vbrec-btn--start" style="min-width:180px;">✅ Use recording</button>
                         </div>
         `;
         const statusEl = container.querySelector('#vb_status');
@@ -2786,11 +1324,6 @@ def render_file_upload_fallback() -> None:
                         st.session_state[last_hash_key] = current_hash
                         st.session_state["pro_ingested_hash"] = current_hash
                         st.success("Recording Locked In ✅", icon="✅")
-                        # Also guide the user to the upload area (covers the case when they don't press the green button)
-                        st.session_state["show_guidance_message"] = True
-                        st.session_state["scroll_to_upload"] = True
-                        # Refresh the UI so the top-level guidance banner is shown immediately
-                        st.rerun()
                         st.markdown(
                             """
                             <script>
@@ -2815,15 +1348,10 @@ def render_file_upload_fallback() -> None:
                     preview_bytes = st.session_state["pro_recorder_audio_preview"]
                     st.markdown("### 🎵 Your Recording")
                     st.audio(preview_bytes, format="audio/wav")
-                    # Helpful nudge if progression stalls for any reason
-                    st.info(
-                        "If the next step doesn't appear after clicking \"Use This Recording\", simply upload the downloaded file using the box below to continue.",
-                        icon="ℹ️",
-                    )
                     
                 # 🌟 ULTRA SUPREME: Ultra prominent action buttons guaranteed visible
-                st.markdown("<div class='mt-1'></div>", unsafe_allow_html=True)
-                st.markdown("<hr class='my-0.5' style='border-width:2px;'/>", unsafe_allow_html=True)
+                st.markdown("<div style='margin-top:1rem;'></div>", unsafe_allow_html=True)
+                st.markdown("<hr style='margin:0.5rem 0;border-width:2px;'/>", unsafe_allow_html=True)
                 
                 # Ensure audio player has clean styling
                 if "pro_recorder_audio_preview" in st.session_state:
@@ -2837,34 +1365,9 @@ def render_file_upload_fallback() -> None:
                     </style>
                     ''', unsafe_allow_html=True)
                 
-                # CRITICAL: Professional button with guaranteed styling
-                st.markdown('''
-                <style>
-                /* Ensure button visibility */
-                .recorder-button {
-                    background: linear-gradient(135deg, #3182CE 0%, #2C5282 100%);
-                    color: white;
-                    padding: 12px 24px;
-                    font-weight: 600;
-                    border-radius: 8px;
-                    text-align: center;
-                    margin: 1rem 0;
-                    cursor: pointer;
-                    box-shadow: 0 4px 6px rgba(49, 130, 206, 0.25);
-                    transition: all 0.2s ease;
-                }
-                .recorder-button:hover {
-                    box-shadow: 0 6px 8px rgba(49, 130, 206, 0.4);
-                    transform: translateY(-2px);
-                }
-                </style>
-                <div class="recorder-button" onclick="document.getElementById('use_recording_pro_btn').click()">
-                    🔒 USE THIS RECORDING
-                </div>
-                ''', unsafe_allow_html=True)
-                
-                # Hidden button that will be clicked by the div above
-                force = st.button("USE THIS RECORDING", key="use_recording_pro_btn", type="primary")
+                # CRITICAL: Use fullwidth button and make it impossible to miss
+                force = st.button("🔒 USE THIS RECORDING", type="primary", use_container_width=True, 
+                                 key="use_recording_pro_btn", help="Click to use this recording for voice cloning")
                 
                 if force:
                     if "pro_recorder_audio_preview" in st.session_state:
@@ -2872,17 +1375,12 @@ def render_file_upload_fallback() -> None:
                         meta = _ingest_audio_bytes(wav_bytes, source="pro_recorder", filename="recording.wav")
                         _render_audio_feedback(meta, wav_bytes)
                         st.success("Recording Locked In ✅", icon="✅")
-                        
                         # Clear preview after use
                         del st.session_state["pro_recorder_audio_preview"]
                         st.session_state["pro_ingested_hash"] = current_hash
                         # 🌟 ULTRA SUPREME: Triple guarantee of flow continuation
                         st.session_state["force_continue_flow"] = True
                         st.session_state["completed_recording"] = True
-                        # 🎯 ELEGANT SOLUTION: Store flag to show guidance message after rerun
-                        st.session_state["show_guidance_message"] = True
-                        # 🔑 CRITICAL: Set flow_state to 'processing' to trigger Step 2
-                        st.session_state["flow_state"] = "processing"
                         st.rerun()  # 🔑 CRITICAL: Force flow continuation
                         st.markdown(
                             """
@@ -2952,114 +1450,13 @@ def render_file_upload_fallback() -> None:
     render_file_upload_fallback()
 
 
-def _validate_audio(audio_data: bytes) -> bool:
-    """Validate audio data for cloning requirements."""
-    try:
-        if not audio_data:
-            return False
-            
-        # Convert to AudioSegment for analysis
-        from pydub import AudioSegment
-        audio = AudioSegment.from_file(BytesIO(audio_data))
-        
-        # Check duration (30-60 seconds recommended)
-        duration_ms = len(audio)
-        if duration_ms < 10000:  # Minimum 10 seconds
-            st.warning("⚠️ Audio is too short. Recommended duration is 30-60 seconds.")
-            return False
-            
-        # Check volume levels
-        if audio.dBFS < -35:
-            st.warning("⚠️ Audio volume is too low. Please record in a quieter environment.")
-            return False
-            
-        # Check sample rate
-        if audio.frame_rate < 16000:
-            st.warning("⚠️ Audio quality is too low. Please use a better microphone.")
-            return False
-            
-        return True
-        
-    except Exception as e:
-        st.error(f"Audio validation failed: {str(e)}")
-        return False
-
-def _trim_silence(audio_data: bytes, min_silence_len: int = 500, silence_thresh: int = -40) -> bytes:
-    """Trim silence from the beginning and end of the audio."""
-    try:
-        from pydub import AudioSegment
-        audio = AudioSegment.from_file(BytesIO(audio_data))
-        
-        # Trim silence
-        trimmed = audio.strip_silence(
-            silence_len=min_silence_len,
-            silence_thresh=silence_thresh,
-            padding=100
-        )
-        
-        # Convert back to bytes
-        buffer = BytesIO()
-        trimmed.export(buffer, format="wav")
-        return buffer.getvalue()
-        
-    except Exception as e:
-        st.warning(f"Failed to trim silence: {str(e)}")
-        return audio_data
-
-def _start_cloning_process(audio_data: bytes, voice_label: str) -> None:
-    """Start the voice cloning process with proper error handling."""
-    try:
-        with st.spinner("🔄 Cloning your voice..."):
-            # Prepare audio data
-            buf = BytesIO(audio_data)
-            buf.name = "voice_sample.wav"
-            
-            # Start cloning
-            result = engine.clone_voice(buf, voice_label.strip() or "VocalBrand Voice")
-            
-            if result.get("success") and result.get("voice_id"):
-                # Update session state
-                st.session_state.clone_voice_id = result.get("voice_id")
-                st.session_state.clone_voice_label = voice_label
-                st.session_state.clone_status = result.get("message", "")
-                st.session_state.clone_timestamp = datetime.utcnow().isoformat()
-                
-                # Update history
-                history = st.session_state.get("clone_history", [])
-                history.append({
-                    "voice_id": result.get("voice_id"),
-                    "label": voice_label,
-                    "provider": result.get("provider"),
-                    "message": result.get("message"),
-                    "at": st.session_state.clone_timestamp
-                })
-                st.session_state.clone_history = history[-15:]  # Keep last 15 entries
-                
-                # Show success
-                st.success(f"✨ Voice cloned successfully! Voice ID: {result.get('voice_id')}")
-                st.session_state.flow_state = "complete"
-                
-            else:
-                error_msg = result.get("message", "Voice cloning failed")
-                error_detail = result.get("error_detail", "")
-                st.error(f"❌ **Voice Cloning Failed**\n\n{error_msg}")
-                if error_detail:
-                    with st.expander("🔍 Technical Details"):
-                        st.code(error_detail)
-                st.session_state.flow_state = "ready"
-                
-    except Exception as e:
-        st.error(f"❌ An error occurred during cloning: {str(e)}")
-        st.session_state.flow_state = "ready"
-
 def _render_audio_feedback(meta: Dict[str, Any], raw_bytes: bytes) -> None:
-    """Render audio feedback with waveform visualization."""
     if meta.get("ok"):
         st.success("Sample captured and validated ✅")
     else:
         st.warning(meta.get("message", "Audio validation warning"))
-        
-    # Audio stats
+    st.audio(raw_bytes, format="audio/wav")
+    # Brief summary line
     dur = meta.get("duration")
     loud = meta.get("loudness_dbfs")
     qual = meta.get("quality", {})
@@ -3092,157 +1489,140 @@ def _render_audio_feedback(meta: Dict[str, Any], raw_bytes: bytes) -> None:
 
 
 def render_clone_section() -> None:
-    """Render the world-class voice cloning section."""
-    st.markdown("""
-        <style>
-        .clone-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 10px 40px rgba(102, 126, 234, 0.2); color: white; }
-        .clone-title { font-size: 32px; font-weight: 900; margin-bottom: 8px; }
-        .clone-subtitle { font-size: 15px; opacity: 0.95; }
-        .step-header { font-size: 18px; font-weight: 700; margin: 20px 0 15px 0; color: #1a202c; }
-        .preview-box { background: white; padding: 25px; border-radius: 12px; border: 2px solid #667eea; margin: 20px 0; }
-        </style>
-    """, unsafe_allow_html=True)
-    
-    st.markdown('<div class="clone-header"><div class="clone-title">✨ Voice Cloning</div><div class="clone-subtitle">3-step process to clone your voice</div></div>', unsafe_allow_html=True)
-    st.caption("📋 Pro plan: 30 TTS minutes/month")
-    
-    # Initialize session state
-    for key, val in {"flow_state": "initial", "audio_data": None, "audio_meta": None, "clone_voice_label": "My VocalBrand Voice"}.items():
-        if key not in st.session_state:
-            st.session_state[key] = val
-    
-    # 💪 Safety net: if audio is staged but flow didn't advance, push to Step 2
-    _maybe_force_flow_progression()
+    st.subheader("Voice cloning")
+    # Visual-only note (policy, not enforced by code)
+    st.caption(
+        "Usage policy: Pro includes 30 TTS minutes/month. Additional usage via Minutes Packs (sold by Payment Links)."
+    )
+    # Power-user controls
+    colx, coly, colz = st.columns([1.2, 1.2, 1])
+    with colx:
+        st.checkbox("Use Pro Recorder (timer + waveform)", key="use_pro_recorder", value=False)
+    with coly:
+        st.checkbox("Trim silence before cloning", key="trim_silence_toggle")
+    with colz:
+        st.checkbox("Auto-clone after lock-in", key="auto_clone_toggle")
 
-    # 🎯 SUPREME FIX: Show guidance message FIRST if user just recorded with green button
-    if st.session_state.get("show_guidance_message"):
-        st.info(
-            "**✨ Next Step - Easy Upload:**\n\n"
-            "Your recording has been downloaded to your device. Now simply:\n\n"
-            "1️⃣ **Drag & drop** the downloaded audio file below, OR\n"
-            "2️⃣ **Click the upload button** to browse and select it\n\n"
-            "The drag-and-drop method works seamlessly with all audio formats (WAV, MP3, M4A, AAC) ✅",
-            icon="📁"
-        )
-        # Clear the flag after showing once
-        st.session_state["show_guidance_message"] = False
-        # If requested, scroll the viewport to the upload box anchor
-        if st.session_state.get("scroll_to_upload"):
-            st.markdown(
-                """
-                <script>
-                try { window.location.hash = '#vb-upload'; } catch(e) {}
-                </script>
-                """,
-                unsafe_allow_html=True,
-            )
-            st.session_state["scroll_to_upload"] = False
-        # Add small spacing
-        st.markdown("---")
-    
-    # Step 1: Record/Upload
-    # 🔑 CRITICAL: Skip Step 1 UI if flow already processing (green button case)
-    if st.session_state.flow_state in ["initial"]:
-        st.markdown('<div class="step-header">Step 1️⃣: Record or Upload Your Voice</div>', unsafe_allow_html=True)
-        col1, col2 = st.columns([1, 1])
-        with col1:
-            st.checkbox("✂️ Trim silence", key="trim_silence_toggle")
-        with col2:
-            st.checkbox("⚡ Auto-proceed", key="auto_clone_toggle")
-
-        # Friendly nudge: if browser blocks an automatic event, guide the user immediately
-        st.info(
-            "If clicking 'Use This Recording' doesn't move to the next step, simply upload the downloaded file using the box below. This works with WAV, MP3, M4A, AAC, OGG, FLAC, AIFF, or WEBM.",
-            icon="ℹ️",
-        )
-        
-        audio_data = render_audio_capture_area()
-        
-        if audio_data is not None:
-            if isinstance(audio_data, bytes):
-                st.session_state.audio_data = audio_data
-                st.session_state.audio_meta = {"ok": True, "filename": "recording.wav", "type": "audio/wav", "source": "recorder"}
-                st.session_state.flow_state = "processing"
-                st.rerun()
-            elif hasattr(audio_data, 'read'):
-                try:
-                    st.session_state.audio_data = audio_data.read()
-                    st.session_state.audio_meta = {"ok": True, "filename": audio_data.name, "type": audio_data.type, "source": "upload"}
-                    st.session_state.flow_state = "processing"
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"❌ Upload failed: {str(e)}")
-                    return
-    
-    # Step 2: Preview
-    if st.session_state.flow_state in ["processing", "ready"]:
-        st.markdown('<div class="step-header">Step 2️⃣: Preview & Validate</div>', unsafe_allow_html=True)
-        if st.session_state.flow_state == "processing":
-            with st.spinner("🔄 Processing..."):
-                if st.session_state.get("trim_silence_toggle"):
-                    st.session_state.audio_data = _trim_silence(st.session_state.audio_data)
-                if _validate_audio(st.session_state.audio_data):
-                    st.session_state.flow_state = "ready"
-                    st.success("✅ Audio validated!")
+    render_audio_capture_area()
+    meta = st.session_state.get("pending_audio_meta")
+    raw_bytes = st.session_state.get("pending_audio_bytes", b"")
+    if not raw_bytes:
+        st.info("Provide a recording or upload a file to proceed.")
+        return
+    voice_label_default = st.session_state.get("clone_voice_label") or "My VocalBrand Voice"
+    voice_label = st.text_input("Voice label", value=voice_label_default, key="clone_voice_label_input")
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        disabled = not meta or not meta.get("ok")
+        if st.button("Clone voice", type="primary", disabled=disabled):
+            # Apply optional silence trimming before send
+            bytes_to_send, trim_info = _maybe_trim_silence(raw_bytes)
+            buf = BytesIO(raw_bytes)
+            if bytes_to_send is not raw_bytes:
+                buf = BytesIO(bytes_to_send)
+            buf.name = meta.get("filename", "voice.wav")
+            with st.spinner("Contacting ElevenLabs..."):
+                result = engine.clone_voice(buf, voice_label.strip() or "VocalBrand Voice")
+            
+            # CRITICAL: Only save voice_id if cloning was actually successful
+            if result.get("success") and result.get("voice_id"):
+                st.session_state["clone_voice_id"] = result.get("voice_id")
+                st.session_state["clone_voice_label"] = voice_label
+                st.session_state["clone_status"] = result.get("message", "")
+                st.session_state["clone_timestamp"] = datetime.utcnow().isoformat()
+                history = st.session_state.get("clone_history", [])
+                history.append(
+                    {
+                        "voice_id": result.get("voice_id"),
+                        "label": voice_label,
+                        "provider": result.get("provider"),
+                        "message": result.get("message"),
+                        "at": st.session_state["clone_timestamp"],
+                        "trim": trim_info,
+                    }
+                )
+                st.session_state["clone_history"] = history[-15:]
+                st.success(f"✅ Voice cloned successfully! ID: {result.get('voice_id')}")
+            else:
+                # CRITICAL: Clear any previous voice_id on failure
+                st.session_state["clone_voice_id"] = ""
+                st.session_state["clone_status"] = ""
+                
+                error_msg = result.get("message", "Voice cloning failed")
+                error_detail = result.get("error_detail", "")
+                provider = result.get("provider", "unknown")
+                
+                st.error(f"❌ **Voice Cloning Failed**\n\n{error_msg}")
+                
+                if error_detail:
+                    with st.expander("🔍 Technical Details"):
+                        st.code(error_detail)
+                
+                # Provide actionable feedback based on error type
+                if provider == "quota_exceeded":
+                    st.info(
+                        "**Voice Quota Limit Reached**\n\n"
+                        "The system automatically attempted to clean up old voices and retry, "
+                        "but the operation still failed. This means:\n\n"
+                        "- You may have reached your ElevenLabs plan limit\n"
+                        "- Try again in a moment (automatic cleanup may need time)\n"
+                        "- Consider upgrading your ElevenLabs plan for more voice slots"
+                    )
                 else:
-                    st.error("❌ Validation failed")
-                    if st.button("🔄 Try Again"):
-                        st.session_state.flow_state = "initial"
-                        st.session_state.audio_data = None
-                        st.rerun()
-                    return
+                    st.warning(
+                        "**What to try:**\n"
+                        "- Ensure audio is at least 30 seconds long\n"
+                        "- Speak clearly in a quiet environment\n"
+                        "- Check microphone quality\n"
+                        "- Try recording again with better audio quality\n"
+                        "- Verify your ElevenLabs API key is valid"
+                    )
+    with col2:
+        if st.button("Discard sample", key="discard_sample_btn"):
+            st.session_state["pending_audio_bytes"] = b""
+            st.session_state["pending_audio_meta"] = {}
+            st.session_state["pending_audio_label"] = ""
+            st.info("Sample cleared.")
+
+    # Auto-clone right after lock-in (idempotent)
+    if (
+        st.session_state.get("auto_clone_toggle")
+        and st.session_state.get("recording_locked_in")
+        and meta
+        and meta.get("hash")
+        and st.session_state.get("last_auto_clone_hash") != meta.get("hash")
+        and meta.get("ok")
+    ):
+        voice_label_aut = (st.session_state.get("clone_voice_label") or voice_label_default).strip() or "VocalBrand Voice"
+        bytes_to_send, trim_info = _maybe_trim_silence(raw_bytes)
+        buf = BytesIO(bytes_to_send)
+        buf.name = meta.get("filename", "voice.wav")
+        with st.spinner("Auto-cloning with ElevenLabs..."):
+            result = engine.clone_voice(buf, voice_label_aut)
         
-        if st.session_state.flow_state == "ready":
-            st.markdown('<div class="preview-box">', unsafe_allow_html=True)
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                st.markdown("**Your Voice Sample**")
-                st.audio(st.session_state.audio_data, format="audio/wav")
-            with col2:
-                st.markdown("**Source**")
-                st.metric("", st.session_state.audio_meta.get("source", "unknown").title())
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            # Step 3: Clone
-            st.markdown('<div class="step-header">Step 3️⃣: Create Clone</div>', unsafe_allow_html=True)
-            voice_label = st.text_input("Voice name", value=st.session_state.clone_voice_label, placeholder="e.g., Professional Speaker", key="clone_voice_label_input")
-            st.session_state.clone_voice_label = voice_label
-            
-            col1, col2 = st.columns([2, 1])
-            with col1:
-                if st.button("🚀 Start Cloning", type="primary", use_container_width=True):
-                    _start_cloning_process(st.session_state.audio_data, voice_label)
-            with col2:
-                if st.button("↩️ Discard", use_container_width=True):
-                    st.session_state.flow_state = "initial"
-                    st.session_state.audio_data = None
-                    st.rerun()
-    
-    # Show completion with option to clone another voice
-    if st.session_state.flow_state == "complete":
-        st.markdown("""
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 12px; color: white; text-align: center; margin: 20px 0;">
-                <h2 style="margin: 0 0 10px 0;">🎉 Voice Cloned Successfully!</h2>
-                <p style="font-size: 16px; margin: 10px 0;">Your voice is ready to use for text-to-speech generation</p>
-            </div>
-        """, unsafe_allow_html=True)
-        # Fallback guidance in case navigation doesn't auto-switch on some Streamlit versions
-        st.info("Next step: open the left Navigation and choose ‘Generate Speech’ to synthesize audio with your new voice.")
-        
-        col1, col2 = st.columns([1, 1])
-        with col1:
-            if st.button("📝 Generate Speech", type="primary", use_container_width=True):
-                # Navigate directly to the Generate Speech page by updating the sidebar radio state
-                st.session_state["nav_page"] = "Generate Speech"
-                st.rerun()
-        with col2:
-            if st.button("🎙️ Clone Another Voice", use_container_width=True):
-                # Reset state to record another voice
-                st.session_state.flow_state = "initial"
-                st.session_state.audio_data = None
-                st.session_state.audio_meta = None
-                st.session_state.clone_voice_label = "My VovalBrand Voice"
-                st.rerun()
+        # CRITICAL: Only save voice_id if cloning was actually successful
+        if result.get("success") and result.get("voice_id"):
+            st.session_state["clone_voice_id"] = result.get("voice_id")
+            st.session_state["clone_voice_label"] = voice_label_aut
+            st.session_state["clone_status"] = result.get("message", "")
+            st.session_state["clone_timestamp"] = datetime.utcnow().isoformat()
+            st.session_state["last_auto_clone_hash"] = meta.get("hash")
+            history = st.session_state.get("clone_history", [])
+            history.append(
+                {
+                    "voice_id": result.get("voice_id"),
+                    "label": voice_label_aut,
+                    "provider": result.get("provider"),
+                    "message": result.get("message"),
+                    "at": st.session_state["clone_timestamp"],
+                    "auto": True,
+                    "trim": trim_info,
+                }
+            )
+            st.session_state["clone_history"] = history[-15:]
+            st.success("Auto-clone complete ✅")
+        else:
+            st.warning(result.get("message", "Auto-clone failed"))
 
 
 def render_generation_section() -> None:
@@ -3348,9 +1728,9 @@ def render_upgrade_section(container: Any) -> None:
     # Branded upgrade banner
     container.markdown(
         """
-        <div class="vb-banner vb-banner--upgrade">
-            <div class="vb-banner__title">Upgrade to VocalBrand Pro</div>
-            <div class="vb-banner__sub">Unlimited generations • Priority processing • Commercial use</div>
+        <div class="vb-banner vb-banner--upgrade" style="background:linear-gradient(135deg, #1a365d 0%, #0b2344 100%); color:#fff; border-radius:16px; padding:1.25rem; border:none; margin-bottom:1rem;">
+            <div class="vb-banner__title" style="font-weight:800; font-size:1.2rem; color:#fff; margin-bottom:0.5rem;">Upgrade to VocalBrand Pro</div>
+            <div class="vb-banner__sub" style="color:#fff; opacity:0.95;">Unlimited generations • Priority processing • Commercial use</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -4145,7 +2525,7 @@ def page_contact() -> None:
 
 
 def main() -> None:
-    inject_css_overrides()
+    inject_supreme_css()
     configure_page()
     init_db()
     ensure_demo_user()
