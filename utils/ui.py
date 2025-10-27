@@ -1030,15 +1030,14 @@ button[kind="secondary"]:hover {
 .vb-banner { border-radius:16px; padding:1.25rem; border:1px solid rgba(26,54,93,.12); }
 .vb-banner--upgrade {
     background:linear-gradient(135deg, var(--primary-blue) 0%, #0b2344 100%) !important;
-    color:#fff !important;
+    color: #fff !important;
     border-color:#0b2344 !important;
     display:block !important;
     position:relative !important;
     isolation:isolate !important; /* ensure gradient is not washed by ancestors */
 }
-.vb-banner--upgrade { color:#ffffff !important; }
-/* Important: only descendants get background reset to prevent wiping the banner gradient */
-.vb-banner--upgrade * { color:#ffffff !important; fill:#ffffff !important; background:transparent !important; }
+/* Override global text color AND background in descendants */
+.vb-banner--upgrade, .vb-banner--upgrade * { color:#ffffff !important; fill:#ffffff !important; background:transparent !important; }
 .vb-banner--upgrade .vb-banner__title { font-weight:800; font-size:1.2rem; }
 .vb-banner--upgrade .vb-banner__sub { opacity:.92; }
 
@@ -1706,14 +1705,16 @@ section[data-testid="stSidebar"] [role="radiogroup"] > div:first-child {
    FILE UPLOADER - LIGHT THEME
    Ensure visible drop zone and labels
    =============================== */
+/* Make the uploader shell fully transparent to avoid white artifacts,
+   keep a strong dashed border for affordance. */
 [data-testid="stFileUploader"],
 [data-testid="stFileUploader"] section,
 [data-testid="stFileUploader"] .uploadDropTarget,
 .stFileUploader,
 .stFileUploader section,
 .stFileUploader .uploadDropTarget {
-    background: #f8fafc !important; /* Slightly off-white for visibility */
-    border: 3px dashed var(--primary-blue) !important; /* Thicker, brand-color border */
+    background: transparent !important; /* prevent inner white slabs */
+    border: 3px dashed var(--primary-blue) !important; /* brand-color border */
     color: var(--dark-text) !important;
     border-radius: 12px !important;
     padding: 2rem !important;
@@ -1766,6 +1767,14 @@ button[kind="secondary"]:hover {
     transform: translateY(-2px) !important;
     box-shadow: 0 8px 12px rgba(0,0,0,0.15) !important;
     color: var(--pure-white) !important;
+}
+
+/* If the uploader is placed inside brand/gradient panels, ensure no child reintroduces white. */
+.vb-banner--upgrade [data-testid="stFileUploader"],
+.vb-banner--upgrade .stFileUploader,
+.vb-banner--upgrade [data-testid="stFileUploader"] *,
+.vb-banner--upgrade .stFileUploader * {
+    background: transparent !important;
 }
 
 /* Caret visible on light background */
@@ -1931,6 +1940,7 @@ input[type="radio"],
     width: 20px !important;
     height: 20px !important;
     cursor: pointer !important;
+
 }
 
 input[type="radio"]:checked {
@@ -2492,11 +2502,18 @@ button[kind="secondary"]:hover {
 
 /* Upgrade banner */
 .vb-banner { border-radius:16px; padding:1.25rem; border:1px solid rgba(26,54,93,.12); }
-.vb-banner--upgrade { background:linear-gradient(135deg, var(--primary-blue) 0%, #0b2344 100%); color:#fff; border-color:#0b2344; }
-/* Override global text color: ensure ALL text inside the banner stays white */
-.vb-banner--upgrade, .vb-banner--upgrade * { color:#ffffff !important; fill:#ffffff !important; }
+.vb-banner--upgrade {
+    background:linear-gradient(135deg, var(--primary-blue) 0%, #0b2344 100%) !important;
+    color: #fff !important;
+    border-color:#0b2344 !important;
+    display:block !important;
+    position:relative !important;
+    isolation:isolate !important; /* ensure gradient is not washed by ancestors */
+}
+/* Override global text color AND background in descendants */
+.vb-banner--upgrade, .vb-banner--upgrade * { color:#ffffff !important; fill:#ffffff !important; background:transparent !important; }
 .vb-banner--upgrade .vb-banner__title { font-weight:800; font-size:1.2rem; }
-.vb-banner--upgrade .vb-banner__sub { opacity:.9; }
+.vb-banner--upgrade .vb-banner__sub { opacity:.92; }
 
 /* ===============================
    TABS - CLEAR SELECTION STATE
@@ -3162,14 +3179,16 @@ section[data-testid="stSidebar"] [role="radiogroup"] > div:first-child {
    FILE UPLOADER - LIGHT THEME
    Ensure visible drop zone and labels
    =============================== */
+/* Make the uploader shell fully transparent to avoid white artifacts,
+   keep a strong dashed border for affordance. */
 [data-testid="stFileUploader"],
 [data-testid="stFileUploader"] section,
 [data-testid="stFileUploader"] .uploadDropTarget,
 .stFileUploader,
 .stFileUploader section,
 .stFileUploader .uploadDropTarget {
-    background: #f8fafc !important; /* Slightly off-white for visibility */
-    border: 3px dashed var(--primary-blue) !important; /* Thicker, brand-color border */
+    background: transparent !important; /* prevent inner white slabs */
+    border: 3px dashed var(--primary-blue) !important; /* brand-color border */
     color: var(--dark-text) !important;
     border-radius: 12px !important;
     padding: 2rem !important;
@@ -3222,6 +3241,14 @@ button[kind="secondary"]:hover {
     transform: translateY(-2px) !important;
     box-shadow: 0 8px 12px rgba(0,0,0,0.15) !important;
     color: var(--pure-white) !important;
+}
+
+/* If the uploader is placed inside brand/gradient panels, ensure no child reintroduces white. */
+.vb-banner--upgrade [data-testid="stFileUploader"],
+.vb-banner--upgrade .stFileUploader,
+.vb-banner--upgrade [data-testid="stFileUploader"] *,
+.vb-banner--upgrade .stFileUploader * {
+    background: transparent !important;
 }
 
 /* Caret visible on light background */
@@ -3488,14 +3515,16 @@ section[data-testid="stSidebar"] [role="radiogroup"] > div:first-child {
    FILE UPLOADER - LIGHT THEME
    Ensure visible drop zone and labels
    =============================== */
+/* Make the uploader shell fully transparent to avoid white artifacts,
+   keep a strong dashed border for affordance. */
 [data-testid="stFileUploader"],
 [data-testid="stFileUploader"] section,
 [data-testid="stFileUploader"] .uploadDropTarget,
 .stFileUploader,
 .stFileUploader section,
 .stFileUploader .uploadDropTarget {
-    background: #f8fafc !important; /* Slightly off-white for visibility */
-    border: 3px dashed var(--primary-blue) !important; /* Thicker, brand-color border */
+    background: transparent !important; /* prevent inner white slabs */
+    border: 3px dashed var(--primary-blue) !important; /* brand-color border */
     color: var(--dark-text) !important;
     border-radius: 12px !important;
     padding: 2rem !important;
@@ -3549,36 +3578,6 @@ button[kind="secondary"]:hover {
     box-shadow: 0 8px 12px rgba(0,0,0,0.15) !important;
     color: var(--pure-white) !important;
 }
-
-/* Caret visible on light background */
-input, textarea { caret-color: var(--dark-text) !important; }
-
-/* File uploader label text - make it VERY visible */
-[data-testid="stFileUploader"] label,
-[data-testid="stFileUploader"] small,
-.stFileUploader label,
-.stFileUploader small {
-    color: var(--dark-text) !important;
-    font-weight: 600 !important;
-    font-size: 1rem !important;
-}
-
-/* ===============================
-   FORM INPUTS - PRISTINE WHITE
-   All text/email/password fields
-   =============================== */
-input[type="text"], 
-input[type="email"], 
-input[type="password"], 
-input[type="number"],
-input[type="search"],
-textarea,
-[data-baseweb="input"] input,
-.stTextInput input, 
-.stTextArea textarea,
-.stNumberInput input {
-    background: var(--pure-white) !important;
-    color: var(--dark-text) !important;
     border: 2px solid var(--border-gray) !important;
     border-radius: 8px !important;
     padding: 0.5rem !important;
@@ -4152,15 +4151,18 @@ def inject_supreme_sidebar_and_audio_fix():
 
             /* ---------- Mobile FAB to open sidebar ---------- */
             @media (max-width: 992px){
-                #vb-fab-menu{ position: fixed !important; right: 18px !important; left:auto !important; bottom: 18px !important; width:60px; height:60px; border-radius:50%;
+                #vb-fab-menu{ position: fixed !important; right: 18px !important; left:auto !important; bottom: 18px !important; width:56px; height:56px; border-radius:50%;
                     background: linear-gradient(180deg, #15335f 0%, #0b2344 100%) !important;
                     color:#fff; border:none; box-shadow:0 14px 30px rgba(2,6,23,.35) !important;
-                    display:flex; align-items:center; justify-content:center; z-index: 99999 !important; cursor:pointer;
-                    transition: transform .15s ease, box-shadow .2s ease, opacity .25s ease; opacity: .98; }
+                    display:flex; align-items:center; justify-content:center; z-index: 2147483647 !important; cursor:pointer; pointer-events: auto !important;
+                    transition: transform .15s ease, box-shadow .2s ease, opacity .25s ease; opacity: .98; -webkit-tap-highlight-color: transparent; user-select:none; }
+                #vb-fab-menu.vb-open{ background: linear-gradient(180deg, #214076 0%, #13294d 100%) !important; box-shadow:0 18px 36px rgba(2,6,23,.45) !important; }
                 #vb-fab-menu:hover{ transform: translateY(-2px) scale(1.03); box-shadow:0 18px 36px rgba(2,6,23,.4); }
                 #vb-fab-menu:active{ transform: scale(.98); }
                 #vb-fab-menu svg{ width: 28px; height: 28px; display:block; }
                 #vb-fab-menu[hidden]{ display:none !important; }
+                /* Ensure overlay is below FAB */
+                [data-testid="stSidebarOverlay"]{ z-index: 2147483646 !important; }
 
                 /* Hide native toggles; we'll render a unified top-bar toggle */
                 [data-testid="collapsedControl"],
@@ -4176,18 +4178,41 @@ def inject_supreme_sidebar_and_audio_fix():
                 /* Avoid header content overlap by giving left padding */
                 [data-testid="stHeader"]{ padding-left: 56px !important; }
             }
-            /* Ensure topbar toggle is styled even on mobile UA devices with large CSS pixels */
-            #vb-topbar-toggle{ position: fixed; top: 12px; left: 12px; width: 36px; height: 36px;
-                display: inline-flex; align-items:center; justify-content:center; border-radius: 999px; z-index: 100000;
-                background: #0b2344; color: #fff; box-shadow: 0 8px 18px rgba(2,6,23,.25); font-size: 18px; font-weight: 900; }
-            #vb-topbar-toggle span{ line-height: 1; display:block; transform: translateY(-1px); }
-            #vb-topbar-toggle:active{ transform: scale(.98); }
-            .vb-has-topbar-toggle [data-testid="stHeader"]{ padding-left: 56px !important; }
         </style>
 
         <script>
         (function(){
             'use strict';
+
+            const SIDEBAR_OVERLAY_SELECTOR = '[data-testid="stSidebarOverlay"]';
+            const SIDEBAR_OPEN_SELECTOR = '[data-testid="stSidebarNavOpen"] button';
+            const SIDEBAR_CLOSE_SELECTOR = '[data-testid="stSidebarNavClose"] button';
+            const SIDEBAR_TOGGLE_SELECTOR = 'div[data-testid="collapsedControl"] > button, [data-testid="collapsedControl"] button';
+
+            const isSidebarOpen = () => {
+                const overlay = document.querySelector(SIDEBAR_OVERLAY_SELECTOR);
+                return !!(overlay && getComputedStyle(overlay).display !== 'none');
+            };
+
+            const getSidebarControl = (mode) => {
+                if (mode === 'open') {
+                    return document.querySelector(SIDEBAR_OPEN_SELECTOR) || document.querySelector(SIDEBAR_TOGGLE_SELECTOR);
+                }
+                return document.querySelector(SIDEBAR_CLOSE_SELECTOR) || document.querySelector(SIDEBAR_TOGGLE_SELECTOR);
+            };
+
+            const attachToggleHandlers = (el, handler) => {
+                const listener = (event) => {
+                    if (event.type === 'keydown' && event.key !== 'Enter' && event.key !== ' ') return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    handler(event);
+                };
+                ['click', 'keydown'].forEach(evt => {
+                    const options = evt === 'click' ? {passive:false} : false;
+                    el.addEventListener(evt, listener, options);
+                });
+            };
 
             // 🎯 PART 1: GLOBAL SEAM OVERLAY (aligned to toggle via CSS var)
             // Create once and anchor to viewport using --vb-sidebar-w
@@ -4305,7 +4330,17 @@ def inject_supreme_sidebar_and_audio_fix():
                         const card = document.createElement('div');
                         card.className = 'vb-sidebar-cta';
                         card.innerHTML = '<div class="ttl">Upgrade to VocalBrand Pro</div><div class="sub">Unlimited generations • Priority processing • Commercial use</div>';
-                        content.insertBefore(card, content.firstChild);
+                        const proAnchor = Array.from(content.querySelectorAll('h1, h2, h3, h4, h5, h6, p, div, span, strong'))
+                            .find(el => /pro\s*features/i.test((el.textContent || '').trim()));
+                        if (proAnchor) {
+                            const anchorBlock = proAnchor.closest('[data-testid="stVerticalBlock"]') || proAnchor;
+                            const container = anchorBlock.parentElement || content;
+                            container.insertBefore(card, anchorBlock);
+                        } else if (content.firstChild) {
+                            content.insertBefore(card, content.firstChild);
+                        } else {
+                            content.appendChild(card);
+                        }
                     }catch(e){ console.log('[VB] Sidebar CTA inject skipped:', e); }
                 };
                 mount();
@@ -4320,77 +4355,152 @@ def inject_supreme_sidebar_and_audio_fix():
             // 🔹 Mobile FAB button that opens the sidebar (<= 992px)
             (function ensureFab(){
                 try{
-                    if (document.getElementById('vb-fab-menu')) return;
                     if (!window.matchMedia || !window.matchMedia('(max-width: 992px)').matches) return;
-                    const btn = document.createElement('button');
-                    btn.id = 'vb-fab-menu'; btn.setAttribute('aria-label','Open menu'); btn.setAttribute('title','Menu');
-                    btn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><g stroke="white" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></g></svg>';
-                    document.body.appendChild(btn);
-                    const toggleSidebar = () => {
-                        // Try the dedicated open control first
-                        const h = document.querySelector('[data-testid="stSidebarNavOpen"] button');
-                        if (h) { try{ h.click(); return true; }catch{} }
-                        // Then the collapsed control (toggles open/close)
-                        const cc = document.querySelector('[data-testid="collapsedControl"] button, div[data-testid="collapsedControl"] > button');
-                        if (cc) { try{ cc.click(); return true; }catch{} }
-                        return false;
-                    };
-                    const handler = (e)=>{ e.preventDefault(); e.stopPropagation(); toggleSidebar(); };
-                    ['click','touchstart','pointerdown','mousedown','keydown'].forEach(ev=> btn.addEventListener(ev, handler, {passive:false}));
-                    // Hide FAB while sidebar overlay is visible to avoid overlap
-                    const sb = document.querySelector('section[data-testid="stSidebar"]');
-                    if (sb && 'MutationObserver' in window){
-                        const mo = new MutationObserver(()=>{
-                            const overlay = document.querySelector('[data-testid="stSidebarOverlay"]');
-                            if (overlay && getComputedStyle(overlay).display !== 'none') btn.setAttribute('hidden','');
-                            else btn.removeAttribute('hidden');
-                            // Enforce position bottom-right in case any baseline CSS sets left
-                            btn.style.right = '18px'; btn.style.left = 'auto'; btn.style.bottom = '18px'; btn.style.position = 'fixed';
-                        });
-                        mo.observe(document.body, {childList:true, subtree:true});
+                    const INIT_SCHEDULE = [50,100,250,500,1000,1500,2000,3000,5000];
+                    let initAttempts = 0;
+                    function init(){
+                        initAttempts++;
+                        if (document.getElementById('vb-fab-menu')) return ready();
+                        const btn = document.createElement('button');
+                        btn.id = 'vb-fab-menu';
+                        btn.setAttribute('aria-label','Open menu');
+                        btn.setAttribute('title','Menu');
+                        btn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><g stroke="white" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></g></svg>';
+                        btn.style.zIndex = '2147483647'; btn.style.pointerEvents = 'auto';
+                        document.body.appendChild(btn);
+                        attach(btn);
+                        ready();
                     }
-                    // Safety: enforce position once on mount
-                    btn.style.right = '18px'; btn.style.left = 'auto'; btn.style.bottom = '18px'; btn.style.position = 'fixed';
-                    console.log('[VB] ✓ FAB initialized');
+                    function getEls(){
+                        const sidebar = document.querySelector('section[data-testid="stSidebar"]') || document.querySelector('[data-testid="stSidebar"]');
+                        const overlay = document.querySelector('[data-testid="stSidebarOverlay"]');
+                        const openBtn = document.querySelector('[data-testid="stSidebarNavOpen"] button') || document.querySelector('[data-testid="collapsedControl"] button') || document.querySelector('button[kind="header"]') || document.querySelector('[aria-label*="navigation" i]');
+                        const closeBtn = document.querySelector('[data-testid="stSidebarNavClose"] button') || document.querySelector('[data-testid="collapsedControl"] button');
+                        return { sidebar, overlay, openBtn, closeBtn };
+                    }
+                    function isOpen(){
+                        const { overlay } = getEls();
+                        return !!(overlay && getComputedStyle(overlay).display !== 'none');
+                    }
+                    function forceShow(sidebar){
+                        if (!sidebar) return false;
+                        try{
+                            sidebar.style.cssText += 'transform: translateX(0) !important; left: 0 !important; position: fixed !important; top:0 !important; bottom:0 !important; visibility: visible !important; display: block !important; z-index: 2147483645 !important;';
+                            return true;
+                        }catch{ return false; }
+                    }
+                    function openSidebar(){
+                        const els = getEls();
+                        let ok = false;
+                        // 1) Direct click
+                        try{ els.openBtn && els.openBtn.click && (els.openBtn.click(), ok = true); }catch(e){ console.log('VocalBrand: Button click failed:', e); }
+                        // 2) Dispatch events
+                        if (!ok && els.openBtn){
+                            try{
+                                const ev = new MouseEvent('click', {bubbles:true,cancelable:true,view:window});
+                                els.openBtn.dispatchEvent(ev);
+                                const pd = new PointerEvent('pointerdown', {bubbles:true}); const pu = new PointerEvent('pointerup', {bubbles:true});
+                                els.openBtn.dispatchEvent(pd); els.openBtn.dispatchEvent(pu);
+                                ok = true;
+                            }catch(e){ console.log('VocalBrand: Dispatch failed:', e); }
+                        }
+                        // 3) Parent click
+                        if (!ok && els.openBtn && els.openBtn.parentElement){
+                            try{ els.openBtn.parentElement.click(); ok = true; }catch{}
+                        }
+                        // 4) Search any probable nav button
+                        if (!ok){
+                            try{
+                                const all = Array.from(document.querySelectorAll('button, [role="button"], [data-testid] button'));
+                                for (const b of all){
+                                    const al = (b.getAttribute('aria-label')||'').toLowerCase();
+                                    const tx = (b.innerText||'').toLowerCase();
+                                    if (/menu|nav|sidebar|open/i.test(al) || /menu|nav|sidebar|open/.test(tx)) { try{ b.click(); ok = true; break; }catch{} }
+                                }
+                            }catch{}
+                        }
+                        // 5) CSS manipulation
+                        if (!ok){ ok = forceShow(els.sidebar); }
+                        // 6) Streamlit internal (if present)
+                        if (!ok && window.streamlitDebug && typeof window.streamlitDebug.toggleSidebar === 'function'){
+                            try{ window.streamlitDebug.toggleSidebar(); ok = true; }catch{}
+                        }
+                        // 7) Nuclear: force show again with stronger cssText
+                        if (!ok && els.sidebar){
+                            try{
+                                els.sidebar.style.cssText += 'transform: translateX(0) !important; left:0 !important; position: fixed !important; top:0 !important; bottom:0 !important; visibility: visible !important; display: block !important; z-index:2147483645 !important;';
+                                ok = true;
+                            }catch{}
+                        }
+                        if (ok) console.log('VocalBrand: ✓ Sidebar opened');
+                        else console.log('VocalBrand: ✗ All sidebar opening methods failed');
+                        setTimeout(syncState, 80);
+                        return ok;
+                    }
+                    function closeSidebar(){
+                        const { closeBtn, overlay, sidebar } = getEls();
+                        let ok = false;
+                        try{ closeBtn && closeBtn.click && (closeBtn.click(), ok = true); }catch{}
+                        if (!ok && overlay){ try{ overlay.click(); ok = true; }catch{} }
+                        if (!ok && sidebar){ try{ sidebar.style.left = '-9999px'; ok = true; }catch{} }
+                        setTimeout(syncState, 80);
+                        return ok;
+                    }
+                    function syncState(){
+                        const { overlay, sidebar } = getEls();
+                        const btn = document.getElementById('vb-fab-menu'); if (!btn) return;
+                        const open = !!(overlay && getComputedStyle(overlay).display !== 'none');
+                        btn.innerHTML = open
+                            ? '<svg viewBox="0 0 24 24" aria-hidden="true"><g stroke="white" stroke-width="2.2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></g></svg>'
+                            : '<svg viewBox="0 0 24 24" aria-hidden="true"><g stroke="white" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></g></svg>';
+                        btn.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+                        btn.setAttribute('title', open ? 'Close menu' : 'Open menu');
+                        btn.classList.toggle('vb-open', open);
+                        // Make sure it's always above overlays
+                        btn.style.zIndex = '2147483647'; btn.style.pointerEvents = 'auto';
+                        // Nudge if sidebar visible
+                        try{
+                            if (open && sidebar){
+                                const rect = sidebar.getBoundingClientRect();
+                                const fromRight = Math.max(18, (window.innerWidth - rect.right) + 18);
+                                btn.style.right = fromRight + 'px';
+                            } else {
+                                btn.style.right = '18px';
+                            }
+                        }catch{ btn.style.right = '18px'; }
+                    }
+                    function handlerOpen(e){ e.preventDefault(); e.stopPropagation(); if (isOpen()) closeSidebar(); else openSidebar(); }
+                    function attach(btn){
+                        const b = btn || document.getElementById('vb-fab-menu'); if (!b) return;
+                        // Multiple event types
+                        b.addEventListener('click', handlerOpen, false);
+                        b.addEventListener('touchstart', handlerOpen, {passive:false});
+                        b.addEventListener('touchend', (e)=>{ e.preventDefault(); e.stopPropagation(); }, {passive:false});
+                        b.addEventListener('pointerdown', handlerOpen, false);
+                        b.addEventListener('mousedown', handlerOpen, false);
+                        b.addEventListener('keydown', (e)=>{ if (e.key==='Enter'||e.key===' ') handlerOpen(e); }, false);
+                        if ('MutationObserver' in window){
+                            const mo = new MutationObserver(syncState);
+                            mo.observe(document.body, {childList:true, subtree:true, attributes:true, attributeFilter:['style','class']});
+                        }
+                        window.addEventListener('resize', syncState);
+                        syncState();
+                        b.style.right = '18px'; b.style.left = 'auto'; b.style.bottom = '18px'; b.style.position = 'fixed';
+                        console.log('VocalBrand: ✓ FAB initialized with multi-method sidebar open');
+                    }
+                    function ready(){ /* no-op for now */ }
+                    // Kick off multiple init attempts for slower environments
+                    INIT_SCHEDULE.forEach(t => setTimeout(init, t));
                 }catch(e){ console.log('[VB] FAB inject skipped:', e); }
             })();
 
             // 🔹 Unified top-bar toggle (» to open / « to close) on mobile
-            (function ensureTopbarToggle(){
-                try{
-                    const isMobileUA = /Mobi|Android|iPhone|iPad|iPod|Windows Phone|Opera Mini|IEMobile/i.test(navigator.userAgent||'');
-                    const isNarrow = (window.matchMedia && window.matchMedia('(max-width: 992px)').matches);
-                    if (!(isNarrow || isMobileUA)) return;
-                    if (document.getElementById('vb-topbar-toggle')) return;
-                    const btn = document.createElement('button');
-                    btn.id = 'vb-topbar-toggle'; btn.type = 'button'; btn.setAttribute('aria-label','Toggle menu');
-                    const setIcon = () => {
-                        const overlay = document.querySelector('[data-testid="stSidebarOverlay"]');
-                        const open = overlay && getComputedStyle(overlay).display !== 'none';
-                        btn.innerHTML = open ? '<span>&laquo;</span>' : '<span>&raquo;</span>';
-                    };
-                    const doToggle = () => {
-                        const overlay = document.querySelector('[data-testid="stSidebarOverlay"]');
-                        const openEl = document.querySelector('[data-testid="stSidebarNavOpen"] button, [data-testid="collapsedControl"] button');
-                        const closeEl = document.querySelector('[data-testid="stSidebarNavClose"] button, [data-testid="collapsedControl"] button');
-                        const open = overlay && getComputedStyle(overlay).display !== 'none';
-                        try { (open ? closeEl : openEl)?.click(); } catch {}
-                        setTimeout(setIcon, 60);
-                    };
-                    btn.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); doToggle(); });
-                    document.body.appendChild(btn);
-                    try{ document.body.classList.add('vb-has-topbar-toggle'); }catch{}
-                    setIcon();
-                    if ('MutationObserver' in window){
-                        const mo = new MutationObserver(setIcon);
-                        mo.observe(document.body, {childList:true, subtree:true, attributes:true});
-                    }
-                    console.log('[VB] ✓ Topbar toggle initialized');
-                }catch(e){ console.log('[VB] Topbar toggle skipped:', e); }
-            })();
+            // REMOVE top-bar toggle for mobile: FAB is the only control
         })();
         </script>
         """
+        # Simple, safe injection: just render everything as-is
+        # Streamlit will sanitize but CSS will apply and JS is in the existing ensureFab block
         st.markdown(html, unsafe_allow_html=True)
 
 
@@ -4651,12 +4761,5 @@ def inject_tiktok_browser_fix():
     </script>
     """
     
-    # Use st.html for better script execution, fallback to markdown
-    try:
-        html_func = getattr(st, "html", None)
-        if callable(html_func):
-            html_func(html)
-        else:
-            st.markdown(html, unsafe_allow_html=True)
-    except Exception:
-        st.markdown(html, unsafe_allow_html=True)
+    # Simple safe injection
+    st.markdown(html, unsafe_allow_html=True)

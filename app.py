@@ -1343,119 +1343,132 @@ from error_handling import (
 
 
 def inject_css_overrides():
-    # Direct injection of critical CSS overrides to eliminate all white artifacts
-    # and fix UI inconsistencies once and for all.
-    st.markdown('''
-
-<style>
-/* GLOBAL RESET - Force transparent backgrounds */
-div[data-testid="stVerticalBlock"] > div, 
-div[data-testid="stHorizontalBlock"] > div,
-div[data-testid="element-container"] > div,
-div[data-testid="stVerticalBlock"] > div > div,
-div[data-testid="stHorizontalBlock"] > div > div,
-div.element-container,
-div.row-widget,
-div.stButton,
-div.stDownloadButton,
-div.stFileUploader,
-section[data-testid],
-div.block-container,
-span[class^="st-emotion-cache-"],
-span[class*=" st-emotion-cache-"],
-div.uploadInstructions {
-    background: transparent !important;
-    background-color: transparent !important;
-    border: none !important;
-}
-
-/* Force transparent backgrounds on specific problematic emotion cache elements */
-.st-emotion-cache-zg1hna,
-.st-emotion-cache-1okhd5l,
-.st-emotion-cache-1fttcpj,
-.st-emotion-cache-7ym5gk,
-.st-emotion-cache-16idsys,
-.st-emotion-cache-ocqp1h {
-    background: transparent !important;
-    background-color: transparent !important;
-    border: none !important;
-}
-
-/* Custom file uploader styling */
-[data-testid="stFileUploader"] {
-    padding: 0.25rem !important;
-}
-
-[data-testid="stFileUploader"] > section {
-    background: transparent !important;
-    border: none !important;
-    padding: 0 !important;
-}
-
-[data-testid="stFileUploaderDropzone"] {
-    border: 2px dashed rgba(49, 51, 63, 0.2) !important;
-    border-radius: 10px !important;
-    background: rgba(247, 248, 250, 0.1) !important;
-    padding: 1rem !important;
-    min-height: 125px !important;
-}
-
-/* Make audio players consistent */
-audio {
-    width: 100% !important;
-    border-radius: 8px !important;
-    background: rgba(247, 248, 250, 0.5) !important;
-}
-
-/* Custom styling for the drag and drop text */
-div.uploadInstructions,
-[data-testid="stFileUploaderDropzone"] span,
-[data-testid="stFileUploaderDropzone"] small,
-.css-pkbazv {
-    color: #1e1e1e !important;
-}
-
-/* Fix iframe spacing and artifacts */
-iframe {
-    border: none !important;
-    background: transparent !important;
-    overflow: hidden !important;
-}
-
-/* Completely hide any extra elements that can't be styled */
-section.main > div > div:nth-child(1) > div > div:nth-child(5) div {
-    background: transparent !important;
-}
-
-/* Eliminate top navigation bar artifacts */
-header[data-testid="stHeader"] {
-    background: rgba(255,255,255,0.95) !important;
-}
-
-/* Fix primary buttons to be more consistent */
-button[kind="primary"] {
-    background: linear-gradient(to bottom, #3182CE, #2C5282) !important;
-}
-
-/* Fix status messages */
-[data-baseweb="notification"] {
-    background: white !important;
-}
-</style>
-
-    ''', unsafe_allow_html=True)
-
-
-def inject_css_overrides():
-    # 🌟 ULTRA SUPREME: Global CSS overrides to fix white artifacts and spacing
+    """COSMIC FIX: Nuclear CSS override to eliminate ALL white artifacts, ensure button text visibility, and fix upgrade banner."""
     st.markdown('''
     <style>
-    /* Fix white artifacts in ALL streamlit components */
-    .stApp {
-        background-color: transparent;
+    /* ========================================
+       NUCLEAR OPTION: Force transparent backgrounds on EVERY element
+       ======================================== */
+    * {
+        background: transparent !important;
+        background-color: transparent !important;
     }
     
-    /* Fix all upload areas */
+    /* ========================================
+       STREAMLIT COMPONENT TARGETING - Eliminate white artifacts
+       ======================================== */
+    .stApp, 
+    .main .block-container,
+    .stVerticalBlock > div,
+    .stHorizontalBlock > div,
+    .element-container,
+    .row-widget,
+    .stButton > button,
+    .stDownloadButton > button,
+    .stFileUploader > div,
+    section[data-testid],
+    div[data-testid],
+    .st-emotion-cache-*,
+    [class*="st-emotion-cache-"],
+    .stAlert,
+    .stExpander,
+    .stContainer,
+    div[data-testid="stVerticalBlock"] > div, 
+    div[data-testid="stHorizontalBlock"] > div,
+    div[data-testid="element-container"] > div,
+    div.element-container,
+    div.row-widget,
+    div.stButton,
+    div.stDownloadButton,
+    div.stFileUploader,
+    div.block-container,
+    span[class^="st-emotion-cache-"],
+    span[class*=" st-emotion-cache-"],
+    div.uploadInstructions {
+        background: transparent !important;
+        background-color: transparent !important;
+        border: none !important;
+    }
+    
+    /* Specific problematic emotion cache elements */
+    .st-emotion-cache-zg1hna,
+    .st-emotion-cache-1okhd5l,
+    .st-emotion-cache-1fttcpj,
+    .st-emotion-cache-7ym5gk,
+    .st-emotion-cache-16idsys,
+    .st-emotion-cache-ocqp1h,
+    .st-emotion-cache-1430ypo,
+    .st-emotion-cache-ue6h4q,
+    .st-emotion-cache-j5r0tf {
+        background: transparent !important;
+        background-color: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+    }
+    
+    /* ========================================
+       UPGRADE BANNER VISIBILITY - CRITICAL FIX
+       ======================================== */
+    .vb-banner,
+    .vb-banner--upgrade,
+    .vb-sidebar-cta {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        z-index: 1000 !important;
+        position: relative !important;
+        display: block !important;
+        padding: 20px !important;
+        border-radius: 12px !important;
+        color: white !important;
+        margin-bottom: 20px !important;
+        box-shadow: 0 10px 40px rgba(102, 126, 234, 0.2) !important;
+        border: none !important;
+    }
+    
+    .vb-banner__title,
+    .vb-banner .ttl {
+        font-size: 1.5rem !important;
+        font-weight: 800 !important;
+        margin-bottom: 8px !important;
+        color: white !important;
+    }
+    
+    .vb-banner__sub,
+    .vb-banner .sub {
+        font-size: 1rem !important;
+        opacity: 0.95 !important;
+        color: white !important;
+    }
+    
+    /* ========================================
+       BUTTON TEXT VISIBILITY GUARANTEE
+       ======================================== */
+    .stButton > button,
+    .stDownloadButton > button,
+    button[kind="primary"],
+    button[kind="secondary"] {
+        color: white !important;
+        font-weight: 600 !important;
+        padding: 0.5rem 1rem !important;
+        min-height: 2.5rem !important;
+    }
+    
+    .stButton > button:hover,
+    .stDownloadButton > button:hover,
+    button[kind="primary"]:hover,
+    button[kind="secondary"]:hover {
+        color: white !important;
+        opacity: 0.9 !important;
+    }
+    
+    /* Primary buttons */
+    button[kind="primary"] {
+        background: linear-gradient(to bottom, #3182CE, #2C5282) !important;
+        color: white !important;
+    }
+    
+    /* ========================================
+       FILE UPLOADER STYLING
+       ======================================== */
     [data-testid="stFileUploader"] {
         background: transparent !important;
         border: 2px dashed rgba(49, 51, 63, 0.2) !important;
@@ -1463,58 +1476,680 @@ def inject_css_overrides():
         padding: 1rem !important;
     }
     
-    [data-testid="stFileUploader"] section {
+    [data-testid="stFileUploader"] section,
+    [data-testid="stFileUploader"] > section {
         background: transparent !important;
         border: none !important;
-    }
-    
-    /* Fix emotion cache spans that cause white artifacts */
-    .st-emotion-cache-zg1hna,
-    .st-emotion-cache-1430ypo,
-    .st-emotion-cache-ue6h4q,
-    .st-emotion-cache-j5r0tf,
-    .st-emotion-cache-1okhd5l,
-    span[class*="st-emotion-cache-"] {
-        background: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
         padding: 0 !important;
-        margin: 0 !important;
     }
     
-    /* Fix for all info boxes and containers */
+    [data-testid="stFileUploaderDropzone"] {
+        border: 2px dashed rgba(49, 51, 63, 0.2) !important;
+        border-radius: 10px !important;
+        background: rgba(247, 248, 250, 0.1) !important;
+        padding: 1rem !important;
+        min-height: 125px !important;
+    }
+    
+    /* ========================================
+       AUDIO PLAYER STYLING
+       ======================================== */
+    audio {
+        width: 100% !important;
+        border-radius: 8px !important;
+        background: rgba(247, 248, 250, 0.5) !important;
+    }
+    
+    audio::-webkit-media-controls {
+        background: transparent !important;
+    }
+    
+    /* ========================================
+       INFO BOXES AND ALERTS
+       ======================================== */
     .stAlert {
         background: rgba(20, 110, 190, 0.05) !important;
         border: 1px solid rgba(20, 110, 190, 0.2) !important;
         border-radius: 0.5rem !important;
     }
     
-    /* Fix all buttons to be more visible */
-    .stButton button {
-        font-weight: 600 !important;
-        padding: 0.5rem 1rem !important;
-        min-height: 2.5rem !important;
+    /* Status messages */
+    [data-baseweb="notification"] {
+        background: white !important;
     }
     
-    /* Make pro recorder audio elements clean */
-    audio, audio::-webkit-media-controls {
+    /* ========================================
+       IFRAME AND MISC FIXES
+       ======================================== */
+    iframe {
+        border: none !important;
         background: transparent !important;
+        overflow: hidden !important;
     }
     
-    /* Fix dividers */
-    import streamlit_audiorecorder as st_audiorecorder
-    audio = st_audiorecorder.st_audiorecorder("Click to record", key="audio_recorder")
-    if audio:
-        st.audio(audio, format="audio/wav")
-        st.success("Audio recorded successfully!")
-    else:
-        st.info("Click to record your sample.")
-    [data-testid="stVerticalBlock"] div[data-testid="stElementContainer"] { 
-        background: transparent !important;
-        margin: 0 !important;
-        padding: 0 !important;
+    header[data-testid="stHeader"] {
+        background: rgba(255,255,255,0.95) !important;
+    }
+    
+    /* ========================================
+       MOBILE FAB BUTTON - Ensure visibility on mobile
+       ======================================== */
+    @media (max-width: 992px) {
+        #vb-fab-menu {
+            display: flex !important;
+            z-index: 2147483647 !important;
+            position: fixed !important;
+            bottom: 20px !important;
+            right: 20px !important;
+            pointer-events: auto !important;
+        }
+    }
+    
+    /* Hide FAB on desktop */
+    @media (min-width: 993px) {
+        #vb-fab-menu {
+            display: none !important;
+        }
     }
     </style>
+    ''', unsafe_allow_html=True)
+
+
+def inject_mobile_fab_nuclear():
+    """Nuclear option - FAB that WILL appear on mobile with 100% toggle reliability."""
+    st.markdown('''
+    <style>
+    /* ========================================
+       MOBILE FAB - NUCLEAR DEPLOYMENT WITH TOGGLE
+       ======================================== */
+    @media (max-width: 992px) {
+        .vb-fab-menu {
+            position: fixed !important;
+            bottom: 20px !important;
+            right: 20px !important;
+            width: 60px !important;
+            height: 60px !important;
+            border-radius: 50% !important;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+            color: white !important;
+            border: none !important;
+            box-shadow: 0 8px 28px rgba(102, 126, 234, 0.4) !important;
+            cursor: pointer !important;
+            z-index: 2147483647 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-size: 28px !important;
+            font-weight: bold !important;
+            transition: all 0.3s ease !important;
+            -webkit-tap-highlight-color: transparent !important;
+            user-select: none !important;
+        }
+        
+        .vb-fab-menu.sidebar-open {
+            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%) !important;
+            transform: rotate(90deg) !important;
+        }
+        
+        .vb-fab-menu:hover {
+            transform: translateY(-2px) scale(1.05) !important;
+            box-shadow: 0 12px 36px rgba(102, 126, 234, 0.5) !important;
+        }
+        
+        .vb-fab-menu.sidebar-open:hover {
+            transform: translateY(-2px) scale(1.05) rotate(90deg) !important;
+        }
+        
+        .vb-fab-menu:active {
+            transform: scale(0.95) !important;
+        }
+        
+        /* COMPLETELY HIDE SIDEBAR TOGGLE ARROWS ON MOBILE */
+        [data-testid="stSidebarNav"],
+        [data-testid="collapsedControl"],
+        [data-testid="stSidebarNavOpen"],
+        [data-testid="stSidebarNavClose"],
+        button[kind="header"][data-testid*="sidebar"],
+        button[aria-label*="navigation"],
+        button[aria-label*="sidebar"] {
+            display: none !important;
+            opacity: 0 !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
+            width: 0 !important;
+            height: 0 !important;
+            overflow: hidden !important;
+        }
+    }
+    
+    /* DESKTOP: HIDE FAB COMPLETELY */
+    @media (min-width: 993px) {
+        .vb-fab-menu {
+            display: none !important;
+            visibility: hidden !important;
+        }
+    }
+    </style>
+    
+    <!-- FORCE FAB INTO DOM -->
+    <button class="vb-fab-menu" id="vb-fab-menu" aria-label="Toggle menu" title="Menu">☰</button>
+    
+    <script>
+    (function() {
+        'use strict';
+        console.log('🚀 NUCLEAR FAB TOGGLE INITIALIZATION STARTED');
+        
+        // SIDEBAR STATE DETECTION - 100% RELIABLE
+        function isSidebarOpen() {
+            const sidebar = document.querySelector('[data-testid="stSidebar"]');
+            if (!sidebar) return false;
+            
+            // Method 1: Check aria-expanded attribute
+            const ariaExpanded = sidebar.getAttribute('aria-expanded');
+            if (ariaExpanded === 'true') return true;
+            if (ariaExpanded === 'false') return false;
+            
+            // Method 2: Check transform style
+            const transform = window.getComputedStyle(sidebar).transform;
+            if (transform && transform !== 'none') {
+                const matrix = new DOMMatrix(transform);
+                if (matrix.m41 < -50) return false; // translateX < -50px means closed
+            }
+            
+            // Method 3: Check display style
+            const display = window.getComputedStyle(sidebar).display;
+            if (display === 'none') return false;
+            
+            // Method 4: Check visibility
+            const visibility = window.getComputedStyle(sidebar).visibility;
+            if (visibility === 'hidden') return false;
+            
+            // Method 5: Check opacity
+            const opacity = window.getComputedStyle(sidebar).opacity;
+            if (parseFloat(opacity) < 0.1) return false;
+            
+            // Method 6: Check overlay presence (sidebar is open if overlay is visible)
+            const overlay = document.querySelector('[data-testid="stSidebarOverlay"]');
+            if (overlay) {
+                const overlayDisplay = window.getComputedStyle(overlay).display;
+                return overlayDisplay !== 'none';
+            }
+            
+            // Default: assume closed
+            return false;
+        }
+        
+        // OPEN SIDEBAR - 7 FALLBACK METHODS
+        function openSidebar() {
+            console.log('🎯 Opening sidebar...');
+            const methods = [
+                function() {
+                    const btn = document.querySelector('[data-testid="stSidebarNavOpen"] button') || 
+                               document.querySelector('[data-testid="stSidebarNavOpen"]');
+                    if (btn && btn.click) {
+                        btn.click();
+                        console.log('✅ Method 1: Open button clicked');
+                        return true;
+                    }
+                    return false;
+                },
+                function() {
+                    const nav = document.querySelector('[data-testid="stSidebarNav"] button');
+                    if (nav && nav.click) {
+                        nav.click();
+                        console.log('✅ Method 2: Nav button clicked');
+                        return true;
+                    }
+                    return false;
+                },
+                function() {
+                    const btn = document.querySelector('button[kind="header"]');
+                    if (btn && btn.click) {
+                        btn.click();
+                        console.log('✅ Method 3: Header button clicked');
+                        return true;
+                    }
+                    return false;
+                },
+                function() {
+                    const buttons = document.querySelectorAll('button');
+                    for (let btn of buttons) {
+                        const label = (btn.getAttribute('aria-label') || '').toLowerCase();
+                        const text = (btn.textContent || '').toLowerCase();
+                        if (label.includes('navigation') || label.includes('menu') || 
+                            label.includes('sidebar') || label.includes('open') ||
+                            text.includes('☰') || text.includes('menu')) {
+                            btn.click();
+                            console.log('✅ Method 4: Search button clicked');
+                            return true;
+                        }
+                    }
+                    return false;
+                },
+                function() {
+                    const sidebar = document.querySelector('[data-testid="stSidebar"]');
+                    if (sidebar) {
+                        sidebar.setAttribute('aria-expanded', 'true');
+                        sidebar.style.transform = 'translateX(0)';
+                        sidebar.style.display = 'block';
+                        sidebar.style.visibility = 'visible';
+                        sidebar.style.opacity = '1';
+                        sidebar.style.left = '0';
+                        console.log('✅ Method 5: CSS manipulation');
+                        return true;
+                    }
+                    return false;
+                },
+                function() {
+                    if (window.streamlitDebug && window.streamlitDebug.toggleSidebar) {
+                        window.streamlitDebug.toggleSidebar();
+                        console.log('✅ Method 6: Streamlit API');
+                        return true;
+                    }
+                    return false;
+                },
+                function() {
+                    const sidebar = document.querySelector('[data-testid="stSidebar"]');
+                    if (sidebar) {
+                        sidebar.style.cssText = 'transform: translateX(0) !important; display: block !important; visibility: visible !important; opacity: 1 !important; z-index: 999999 !important; position: fixed !important; left: 0 !important; top: 0 !important; bottom: 0 !important;';
+                        sidebar.setAttribute('aria-expanded', 'true');
+                        console.log('✅ Method 7: Nuclear CSS');
+                        return true;
+                    }
+                    return false;
+                }
+            ];
+            
+            for (let i = 0; i < methods.length; i++) {
+                try {
+                    if (methods[i]()) return true;
+                } catch (err) {
+                    console.log('❌ Open method ' + (i + 1) + ' failed:', err.message);
+                }
+            }
+            return false;
+        }
+        
+        // CLOSE SIDEBAR - 7 FALLBACK METHODS
+        function closeSidebar() {
+            console.log('🎯 Closing sidebar...');
+            const methods = [
+                function() {
+                    const btn = document.querySelector('[data-testid="stSidebarNavClose"] button') || 
+                               document.querySelector('[data-testid="stSidebarNavClose"]');
+                    if (btn && btn.click) {
+                        btn.click();
+                        console.log('✅ Method 1: Close button clicked');
+                        return true;
+                    }
+                    return false;
+                },
+                function() {
+                    const overlay = document.querySelector('[data-testid="stSidebarOverlay"]');
+                    if (overlay && overlay.click) {
+                        overlay.click();
+                        console.log('✅ Method 2: Overlay clicked');
+                        return true;
+                    }
+                    return false;
+                },
+                function() {
+                    const nav = document.querySelector('[data-testid="stSidebarNav"] button');
+                    if (nav && nav.click) {
+                        nav.click();
+                        console.log('✅ Method 3: Nav button clicked');
+                        return true;
+                    }
+                    return false;
+                },
+                function() {
+                    const buttons = document.querySelectorAll('button');
+                    for (let btn of buttons) {
+                        const label = (btn.getAttribute('aria-label') || '').toLowerCase();
+                        if (label.includes('close') || label.includes('collapse')) {
+                            btn.click();
+                            console.log('✅ Method 4: Search button clicked');
+                            return true;
+                        }
+                    }
+                    return false;
+                },
+                function() {
+                    const sidebar = document.querySelector('[data-testid="stSidebar"]');
+                    if (sidebar) {
+                        sidebar.setAttribute('aria-expanded', 'false');
+                        sidebar.style.transform = 'translateX(-100%)';
+                        sidebar.style.display = 'none';
+                        sidebar.style.visibility = 'hidden';
+                        sidebar.style.opacity = '0';
+                        console.log('✅ Method 5: CSS manipulation');
+                        return true;
+                    }
+                    return false;
+                },
+                function() {
+                    if (window.streamlitDebug && window.streamlitDebug.toggleSidebar) {
+                        window.streamlitDebug.toggleSidebar();
+                        console.log('✅ Method 6: Streamlit API');
+                        return true;
+                    }
+                    return false;
+                },
+                function() {
+                    const sidebar = document.querySelector('[data-testid="stSidebar"]');
+                    if (sidebar) {
+                        sidebar.style.cssText = 'transform: translateX(-100%) !important; display: none !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important;';
+                        sidebar.setAttribute('aria-expanded', 'false');
+                        console.log('✅ Method 7: Nuclear CSS');
+                        return true;
+                    }
+                    return false;
+                }
+            ];
+            
+            for (let i = 0; i < methods.length; i++) {
+                try {
+                    if (methods[i]()) return true;
+                } catch (err) {
+                    console.log('❌ Close method ' + (i + 1) + ' failed:', err.message);
+                }
+            }
+            return false;
+        }
+        
+        // UPDATE FAB VISUAL STATE
+        function updateFABState(fab) {
+            if (!fab) return;
+            const isOpen = isSidebarOpen();
+            if (isOpen) {
+                fab.classList.add('sidebar-open');
+                fab.setAttribute('aria-label', 'Close menu');
+                fab.setAttribute('title', 'Close menu');
+            } else {
+                fab.classList.remove('sidebar-open');
+                fab.setAttribute('aria-label', 'Open menu');
+                fab.setAttribute('title', 'Open menu');
+            }
+        }
+        
+        // NUCLEAR FAB INITIALIZATION WITH TOGGLE
+        function initFABNuclear() {
+            try {
+                let fab = document.getElementById('vb-fab-menu');
+                if (!fab) {
+                    fab = document.createElement('button');
+                    fab.className = 'vb-fab-menu';
+                    fab.id = 'vb-fab-menu';
+                    fab.innerHTML = '☰';
+                    document.body.appendChild(fab);
+                    console.log('✅ FAB created manually');
+                }
+                
+                const isMobile = window.innerWidth <= 992;
+                if (isMobile) {
+                    fab.style.display = 'flex';
+                    fab.style.zIndex = '2147483647';
+                    fab.style.pointerEvents = 'auto';
+                    console.log('✅ FAB visible on mobile (width: ' + window.innerWidth + 'px)');
+                } else {
+                    fab.style.display = 'none';
+                    console.log('ℹ️ FAB hidden on desktop (width: ' + window.innerWidth + 'px)');
+                    return true;
+                }
+                
+                // Update initial state
+                updateFABState(fab);
+                
+                // Remove existing handlers
+                const newFab = fab.cloneNode(true);
+                fab.parentNode.replaceChild(newFab, fab);
+                fab = newFab;
+                
+                // TOGGLE CLICK HANDLER
+                fab.onclick = function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    const isOpen = isSidebarOpen();
+                    console.log('🎯 FAB CLICKED - Sidebar is currently: ' + (isOpen ? 'OPEN' : 'CLOSED'));
+                    
+                    let success = false;
+                    if (isOpen) {
+                        success = closeSidebar();
+                        console.log(success ? '🎉 Sidebar closed successfully' : '⚠️ Failed to close sidebar');
+                    } else {
+                        success = openSidebar();
+                        console.log(success ? '🎉 Sidebar opened successfully' : '⚠️ Failed to open sidebar');
+                    }
+                    
+                    // Update FAB visual state after toggle
+                    setTimeout(function() {
+                        updateFABState(fab);
+                    }, 100);
+                };
+                
+                // Touch feedback
+                fab.addEventListener('touchstart', function(e) {
+                    fab.style.transform = 'scale(0.95)';
+                }, {passive: true});
+                
+                fab.addEventListener('touchend', function(e) {
+                    fab.style.transform = '';
+                    setTimeout(function() {
+                        updateFABState(fab);
+                    }, 100);
+                }, {passive: true});
+                
+                // Monitor sidebar state changes
+                const observer = new MutationObserver(function() {
+                    updateFABState(fab);
+                });
+                
+                const sidebar = document.querySelector('[data-testid="stSidebar"]');
+                if (sidebar) {
+                    observer.observe(sidebar, {
+                        attributes: true,
+                        attributeFilter: ['aria-expanded', 'class', 'style']
+                    });
+                }
+                
+                console.log('🎯 NUCLEAR FAB TOGGLE COMPLETE');
+                return true;
+            } catch (error) {
+                console.error('❌ FAB init error:', error);
+                return false;
+            }
+        }
+        
+        // AGGRESSIVE INITIALIZATION
+        const delays = [0, 50, 100, 200, 350, 500, 750, 1000, 1500, 2000, 3000, 5000];
+        delays.forEach(function(delay, index) {
+            setTimeout(function() {
+                initFABNuclear();
+                console.log('🔄 FAB toggle init ' + (index + 1) + '/12 at ' + delay + 'ms');
+            }, delay);
+        });
+        
+        // Resize handling
+        let resizeTimer;
+        window.addEventListener('resize', function() {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(function() {
+                console.log('🔄 Resize - reinitializing FAB toggle');
+                initFABNuclear();
+            }, 250);
+        });
+        
+        console.log('✅ NUCLEAR FAB TOGGLE SYSTEM ARMED');
+    })();
+    </script>
+    ''', unsafe_allow_html=True)
+
+
+def inject_sidebar_overlap_fix():
+    """Nuclear fix for sidebar overlapping main content when closed."""
+    st.markdown('''
+    <style>
+    /* ========================================
+       SIDEBAR OVERLAP NUCLEAR FIX
+       ======================================== */
+    
+    /* Sidebar base transition */
+    [data-testid="stSidebar"] {
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }
+    
+    /* WHEN SIDEBAR IS CLOSED - COMPLETELY HIDDEN */
+    [data-testid="stSidebar"][aria-expanded="false"],
+    [data-testid="stSidebar"]:not([aria-expanded="true"]) {
+        transform: translateX(-100%) !important;
+        display: none !important;
+        visibility: hidden !important;
+        width: 0px !important;
+        min-width: 0px !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+    }
+    
+    /* WHEN SIDEBAR IS OPEN - PROPERLY POSITIONED */
+    [data-testid="stSidebar"][aria-expanded="true"] {
+        transform: translateX(0) !important;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+    }
+    
+    /* MAIN CONTENT - PREVENT OVERLAP, ENSURE FULL WIDTH */
+    .main .block-container {
+        margin-left: 0 !important;
+        padding-left: 1rem !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    
+    /* MOBILE: MAIN CONTENT FULL WIDTH WHEN SIDEBAR CLOSED */
+    @media (max-width: 992px) {
+        .main .block-container {
+            width: 100% !important;
+            max-width: 100% !important;
+            margin-left: 0 !important;
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
+        }
+        
+        /* Ensure main content doesn't get pushed by hidden sidebar */
+        .main {
+            margin-left: 0 !important;
+            width: 100% !important;
+        }
+        
+        /* Force sidebar to stay in fixed position overlay mode */
+        [data-testid="stSidebar"] {
+            position: fixed !important;
+            left: 0 !important;
+            top: 0 !important;
+            height: 100vh !important;
+        }
+    }
+    
+    /* DESKTOP: Proper sidebar spacing */
+    @media (min-width: 993px) {
+        .main .block-container {
+            padding-left: 1rem !important;
+        }
+    }
+    </style>
+    
+    <script>
+    (function() {
+        'use strict';
+        console.log('🛡️ SIDEBAR OVERLAP MONITOR STARTING');
+        
+        // SIDEBAR OVERLAP MONITOR - CONTINUOUS ENFORCEMENT
+        function enforceSidebarState() {
+            try {
+                const sidebar = document.querySelector('[data-testid="stSidebar"]');
+                const mainContent = document.querySelector('.main .block-container');
+                const mainSection = document.querySelector('.main');
+                
+                if (!sidebar) return;
+                
+                const isExpanded = sidebar.getAttribute('aria-expanded') === 'true';
+                const isMobile = window.innerWidth <= 992;
+                
+                if (!isExpanded) {
+                    // SIDEBAR CLOSED - ENFORCE COMPLETE HIDING
+                    sidebar.style.transform = 'translateX(-100%)';
+                    sidebar.style.display = 'none';
+                    sidebar.style.visibility = 'hidden';
+                    sidebar.style.opacity = '0';
+                    sidebar.style.pointerEvents = 'none';
+                    sidebar.style.width = '0px';
+                    sidebar.style.minWidth = '0px';
+                    
+                    // MAIN CONTENT - ENFORCE FULL WIDTH
+                    if (mainContent) {
+                        mainContent.style.marginLeft = '0';
+                        mainContent.style.paddingLeft = '1rem';
+                        mainContent.style.width = '100%';
+                        mainContent.style.maxWidth = '100%';
+                    }
+                    
+                    if (mainSection) {
+                        mainSection.style.marginLeft = '0';
+                        mainSection.style.width = '100%';
+                    }
+                } else {
+                    // SIDEBAR OPEN - PROPER DISPLAY
+                    sidebar.style.transform = 'translateX(0)';
+                    sidebar.style.display = 'block';
+                    sidebar.style.visibility = 'visible';
+                    sidebar.style.opacity = '1';
+                    sidebar.style.pointerEvents = 'auto';
+                    sidebar.style.width = '';
+                    sidebar.style.minWidth = '';
+                    
+                    // On mobile, ensure sidebar is overlay mode
+                    if (isMobile) {
+                        sidebar.style.position = 'fixed';
+                        sidebar.style.left = '0';
+                        sidebar.style.top = '0';
+                        sidebar.style.height = '100vh';
+                        sidebar.style.zIndex = '999999';
+                    }
+                }
+            } catch (error) {
+                // Silent fail - don't break the app
+            }
+        }
+        
+        // Run enforcement continuously
+        setInterval(enforceSidebarState, 100);
+        
+        // Also run on mutation (when Streamlit updates DOM)
+        if (window.MutationObserver) {
+            const observer = new MutationObserver(enforceSidebarState);
+            observer.observe(document.body, {
+                attributes: true,
+                attributeFilter: ['aria-expanded', 'class', 'style'],
+                subtree: true
+            });
+            console.log('✅ Mutation observer attached to sidebar');
+        }
+        
+        // Run on window resize
+        window.addEventListener('resize', enforceSidebarState);
+        
+        // Initial enforcement
+        enforceSidebarState();
+        setTimeout(enforceSidebarState, 100);
+        setTimeout(enforceSidebarState, 500);
+        setTimeout(enforceSidebarState, 1000);
+        
+        console.log('✅ SIDEBAR OVERLAP MONITOR ACTIVE');
+    })();
+    </script>
     ''', unsafe_allow_html=True)
 
 
@@ -3345,12 +3980,28 @@ def render_generation_section() -> None:
 
 
 def render_upgrade_section(container: Any) -> None:
-    # Branded upgrade banner
+    """Render upgrade section with prominently visible banner - COSMIC FIX."""
+    # PROMINENTLY VISIBLE UPGRADE BANNER - COSMIC FIX
     container.markdown(
         """
-        <div class="vb-banner vb-banner--upgrade">
-            <div class="vb-banner__title">Upgrade to VocalBrand Pro</div>
-            <div class="vb-banner__sub">Unlimited generations • Priority processing • Commercial use</div>
+        <div class="vb-banner vb-banner--upgrade" style="
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important; 
+            padding: 20px !important; 
+            border-radius: 12px !important; 
+            color: white !important; 
+            margin-bottom: 20px !important;
+            box-shadow: 0 10px 40px rgba(102, 126, 234, 0.2) !important;
+            border: none !important;
+            display: block !important;
+            position: relative !important;
+            z-index: 1000 !important;
+        ">
+            <div class="vb-banner__title" style="font-size: 1.5rem; font-weight: 800; margin-bottom: 8px; color: white;">
+                ✨ Upgrade to VocalBrand Pro
+            </div>
+            <div class="vb-banner__sub" style="font-size: 1rem; opacity: 0.95; color: white;">
+                Unlimited generations • Priority processing • Commercial use
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -4152,6 +4803,15 @@ def main() -> None:
     ensure_session_defaults()
     ensure_voice_reset_on_logout()
     inject_css()
+    
+    # 🚀 NUCLEAR MOBILE FIXES - CRITICAL
+    try:
+        inject_mobile_fab_nuclear()
+        inject_sidebar_overlap_fix()
+    except Exception as e:
+        # Silent fail - don't break the app if nuclear fixes fail
+        pass
+    
     # Inject SEO meta tags for search engine optimization
     try:
         inject_seo_meta()
